@@ -1,0 +1,10 @@
+# The stdlib prototypes (spiking_storage_prototype, test_prototype,
+# snn_classifier, snn_moe_classifier) need NOTHING — pure Python standard library.
+#
+# Only the real-data / snnTorch files need these. CPU build is fine:
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+#   pip install snntorch numpy
+torch
+torchvision
+snntorch
+numpy
