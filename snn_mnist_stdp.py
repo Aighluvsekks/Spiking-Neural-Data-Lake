@@ -25,19 +25,24 @@ inhibitory population; fixed thresholds, no adaptive homeostasis). Upgrade path
 noted at THRESH/INHIB below. Expect ~70-85% with 100 neurons on a subset, not
 the paper's 95% (which needs the full machinery + all 60k images).
 """
+import os
 import torch
 import snntorch as snn
 from torchvision import datasets, transforms
 
 torch.manual_seed(0)  # deterministic run + self-check
 
-# ---- config (tune here) -----------------------------------------------------
-M = 100            # excitatory neurons (= number of learned prototypes)
+# ---- config (tune here, or scale via env: NORD_M / NORD_TRAIN / NORD_TEST) ---
+def _env(key, default):  # scale knobs without editing the file
+    v = os.environ.get(key)
+    return int(v) if v else default
+
+M = _env("NORD_M", 100)        # excitatory neurons (= number of learned prototypes)
 T = 30             # timesteps per image
 MAX_RATE = 0.35    # Poisson spike prob for a fully-lit pixel, per step
 BETA = 0.92        # LIF membrane decay (snnTorch Leaky)
-TRAIN_N = 3000     # training images (unsupervised)
-TEST_N = 1500      # test images
+TRAIN_N = _env("NORD_TRAIN", 3000)   # training images (unsupervised)
+TEST_N = _env("NORD_TEST", 1500)     # test images
 LR = 0.012         # STDP learning rate
 TAU_PRE = 20.0     # pre-synaptic trace time constant (steps)
 W_NORM = 78.0      # target sum of each neuron's incoming weights (homeostasis)
