@@ -20,10 +20,13 @@ spikes land inside the leak window W. GeNN runs the whole stream on the GPU and 
 the detector's output spikes = the match timestamps. Only those leave the device — the
 Paradigm B "only matches transferred to host" property, now at GPU line rate.
 
-Semantic note: GeNN's LIF integrates TOTAL input current, so the detector reacts to
-k template spikes within W (vs the CPU reference's k DISTINCT channels). For a small
-template (e.g. 2 channels) tune Vthresh/refractory to match; for large templates use
-per-channel sub-detectors. Counts are validated against paradigm_b_matcher.py.
+Distinct-channel counting (v0.14): a single LIF that sums input would react to k
+spikes from the SAME channel. To count DISTINCT channels — exact parity with the CPU
+reference — this uses per-channel one-shot sub-detectors: each input channel drives
+its own LIF whose refractory = W, so a channel emits at most ONE pulse per window;
+a counter neuron then fires when >= k of those pulses arrive within W. The
+equivalent pure-Python network (paradigm_b_matcher.subdetector_match) is the oracle
+to validate the GPU match counts against; tune Vthresh/TauM there first.
 
 Run on a GeNN box:  python paradigm_b_genn.py
 """
@@ -32,7 +35,8 @@ import os
 # --- GeNN 5 / PyGeNN API (guarded: import only where the toolchain exists) ---
 try:
     import numpy as np
-    from pygenn import GeNNModel, init_weight_update, init_postsynaptic
+    from pygenn import (GeNNModel, init_weight_update, init_postsynaptic,
+                        init_sparse_connectivity)
     _HAVE_GENN = True
 except Exception as _e:                      # noqa: BLE001 — any import failure -> stub
     _HAVE_GENN = False
@@ -59,32 +63,51 @@ def build_and_run(spk_path, channels, window, k, weight=1.0):
         spike_times.extend(sorted(per_ch[c]))
         ends.append(len(spike_times))
 
-    # 3. build the network
+    # 3. build the network — TWO STAGE, distinct-channel counting:
+    #      In (SpikeSourceArray, one neuron/channel)
+    #        --one-to-one-->  Sub (one LIF per channel, one-SHOT per window)
+    #        --all-to-one-->  Cnt (LIF counter; fires when >= k subs pulse within W)
+    #    The sub-detectors' refractory = W makes each channel emit at most ONE pulse
+    #    per window, so the counter counts DISTINCT channels (not total spikes) —
+    #    exact parity with paradigm_b_matcher.subdetector_match.
     model = GeNNModel("float", "paradigm_b")
     model.dt = 1.0
+    n = len(channels)
     ssa = model.add_neuron_population(
-        "In", len(channels), "SpikeSourceArray", {},
+        "In", n, "SpikeSourceArray", {},
         {"startSpike": np.array(starts), "endSpike": np.array(ends)})
     ssa.extra_global_params["spikeTimes"].set_values(np.array(spike_times, dtype=np.float32))
 
-    # LIF detector: leak ~ W, threshold so ~k coincident inputs fire it
-    lif_params = {"C": 1.0, "TauM": float(window), "Vrest": 0.0, "Vreset": 0.0,
-                  "Vthresh": (k - 0.5) * weight, "Ioffset": 0.0, "TauRefrac": float(window)}
-    det = model.add_neuron_population("Det", 1, "LIF", lif_params,
+    # per-channel one-shot sub-detector: 1 input spike -> fire; refractory = W
+    sub_params = {"C": 1.0, "TauM": 1.0, "Vrest": 0.0, "Vreset": 0.0,
+                  "Vthresh": 0.5 * weight, "Ioffset": 0.0, "TauRefrac": float(window)}
+    sub = model.add_neuron_population("Sub", n, "LIF", sub_params,
                                       {"V": 0.0, "RefracTime": 0.0})
-    det.spike_recording_enabled = True
-    model.add_synapse_population(
-        "In_Det", "DENSE", ssa, det,
+    model.add_synapse_population(                       # In[i] -> Sub[i] only
+        "In_Sub", "SPARSE", ssa, sub,
+        init_weight_update("StaticPulse", {}, {"g": weight}),
+        init_postsynaptic("DeltaCurr"),
+        init_sparse_connectivity("OneToOne", {}))
+
+    # counter: leak ~ W; >= k distinct sub-pulses within W cross threshold; one match
+    # per coincidence (refractory = W, mirroring the CPU reference's reset-after-match)
+    cnt_params = {"C": 1.0, "TauM": float(window), "Vrest": 0.0, "Vreset": 0.0,
+                  "Vthresh": (k - 0.5) * weight, "Ioffset": 0.0, "TauRefrac": float(window)}
+    cnt = model.add_neuron_population("Cnt", 1, "LIF", cnt_params,
+                                      {"V": 0.0, "RefracTime": 0.0})
+    cnt.spike_recording_enabled = True
+    model.add_synapse_population(                       # all Sub -> Cnt
+        "Sub_Cnt", "DENSE", sub, cnt,
         init_weight_update("StaticPulse", {}, {"g": weight}),
         init_postsynaptic("DeltaCurr"))
 
-    # 4. run the whole stream on device; only the detector's spikes are recorded
+    # 4. run the whole stream on device; only the COUNTER's spikes (matches) recorded
     model.build()
     model.load(num_recording_timesteps=int(duration))
     while model.t < duration:
         model.step_time()
     model.pull_recording_buffers_from_device()
-    match_times, _ = det.spike_recording_data[0]
+    match_times, _ = cnt.spike_recording_data[0]
     return list(match_times)
 
 

@@ -3,6 +3,24 @@
 All notable changes to the Spiking Neural Data Lake. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); each version is a git tag.
 
+## [v0.14] — Paradigm B distinct-channel counting (GeNN sub-detectors)
+The v0.13 GeNN detector was a single summing LIF — it counts TOTAL input spikes, so k
+spikes from one channel false-trigger it. Fixed to count DISTINCT channels.
+### Changed
+- `paradigm_b_genn.py`: two-stage network — input → per-channel **one-shot
+  sub-detectors** (LIF, refractory = W, so each channel emits ≤1 pulse per window) →
+  **counter** LIF (fires when ≥k sub-pulses arrive within W). Counts distinct channels.
+### Added
+- `paradigm_b_matcher.subdetector_match` — pure-Python model of that exact two-stage
+  network (the oracle to validate the GPU match counts against; GeNN can't run on the
+  dev box). Plus `total_count_match` to demonstrate the bug it fixes.
+### Verified (CPU, 256-channel store)
+- Sub-detector net: 634 matches (505 in burst) — vs the v0.13 deque reference's 639;
+  the small delta is the sub-detector's one-shot-per-window refractory vs raw-distinct
+  re-triggering (both count distinct channels).
+- **Distinctness proof:** single channel firing k×4 in a window → total-counter makes
+  2 false matches; the sub-detector makes **0** (correct). Self-check enforces this.
+
 ## [v0.13] — Paradigm B: in-storage spike-stream matcher (+ GeNN GPU port)
 Started Paradigm B (in-storage pattern matching, cf. NPUsearch): compile a query into
 an SNN, stream stored spikes through it, transfer only matches to the host.

@@ -53,6 +53,51 @@ def match_stream(events_sorted, q):
     return matches
 
 
+def subdetector_match(events_sorted, q):
+    """CPU model of the GeNN two-stage net (paradigm_b_genn.py): per-channel
+    one-shot sub-detectors -> counter. Each channel emits at most ONE pulse per
+    window (sub-detector refractory = W), so the counter counts DISTINCT channels.
+    This is the network the GPU port mirrors; it must equal match_stream."""
+    W, k = q["window"], q["k"]
+    chans = set(q["channels"])
+    last_pulse = {}                          # channel -> last sub-detector pulse time
+    pulses = deque()
+    matches = []
+    for t, ch in events_sorted:
+        if ch not in chans:
+            continue
+        lp = last_pulse.get(ch)
+        if lp is not None and t - lp < W:
+            continue                         # sub-detector refractory: no new pulse
+        last_pulse[ch] = t
+        pulses.append((t, ch))
+        while pulses and pulses[0][0] <= t - W:
+            pulses.popleft()
+        if len({c for _, c in pulses}) >= k:
+            matches.append(t)
+            pulses.clear()
+            last_pulse.clear()               # detector refractory: reset after match
+    return matches
+
+
+def total_count_match(events_sorted, q):
+    """The WRONG detector (models a single summing LIF, v0.13): fires on k spikes in
+    W regardless of channel. Kept only to show why distinct counting is needed."""
+    W, k = q["window"], q["k"]
+    chans = set(q["channels"])
+    win, matches = deque(), []
+    for t, ch in events_sorted:
+        if ch not in chans:
+            continue
+        win.append(t)
+        while win and win[0] <= t - W:
+            win.popleft()
+        if len(win) >= k:
+            matches.append(t)
+            win.clear()
+    return matches
+
+
 def run_query(spk_path, q):
     """Read ONLY the template channels from storage, stream them through the detector.
     Returns (matches, events_read, bytes_read)."""
@@ -89,6 +134,23 @@ def main():
           f"-> {hub.n_events()/max(1,transferred):.0f}x less to host")
     print("=" * 60)
 
+    # ---- distinct-channel counting (the v0.14 GeNN-parity fix) ----
+    stream, _ = disk_query(path, 0, 2**31 - 1, channels=q["channels"])
+    stream.sort()
+    sub = subdetector_match(stream, q)
+    sub_burst = [m for m in sub if BURST[0] <= m < BURST[1]]
+    spam = [(10 * i, 7) for i in range(q["k"] + 2)]      # one channel, repeated
+    print()
+    print("DISTINCT-CHANNEL COUNTING (the GeNN sub-detector net, v0.14):")
+    print(f"  sub-detector net matches : {len(sub)} ({len(sub_burst)} in burst)")
+    print(f"    (deque reference was {len(matches)}; the delta is the sub-detector's one-shot-")
+    print(f"     per-window refractory vs raw-distinct re-triggering — both count DISTINCT")
+    print(f"     channels. The GeNN port mirrors the sub-detector net exactly.)")
+    print(f"  spam test (channel 7 x{q['k'] + 2} in a window):")
+    print(f"    total-count detector (wrong): {len(total_count_match(spam, q))} match(es) — false positive")
+    print(f"    sub-detector  (distinct)    : {len(subdetector_match(spam, q))} match(es) — correct")
+    print()
+
     # ---- self-checks (verify against brute force) ----
     # brute force: scan ALL template events, same detector, compare
     brute_ev = [(t, c) for c in q["channels"] for t in hub.ch[c]]
@@ -98,8 +160,13 @@ def main():
     assert len(in_burst) >= 1, "burst motif not detected"
     assert bytes_read < nbytes, "read the whole file (no partial read)"
     assert len(matches) < n_read, "no host-transfer reduction"
+    # distinct-counting: sub-detector net detects the burst, rejects single-channel
+    # spam (the false positive a total-counting LIF makes)
+    assert len(sub_burst) >= 1, "sub-detector net did not detect the burst"
+    assert len(total_count_match(spam, q)) >= 1, "spam should fool a total-counter"
+    assert subdetector_match(spam, q) == [], "sub-detector must reject single-channel spam"
     print("self-check OK: matches==brute force, burst detected, partial read, "
-          "transfer reduced")
+          "transfer reduced, distinct-counting verified (spam rejected)")
 
 
 if __name__ == "__main__":

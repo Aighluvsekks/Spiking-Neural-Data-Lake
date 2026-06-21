@@ -41,6 +41,7 @@ Regenerate with `python make_results_plot.py`.
 | v0.11 | `temporal_coding_storage.py` | **Temporal (TTFS) coding** — latency-coded inference, 1 spike/input + early exit | same 100% acc as rate, **83.5× fewer SynOps** |
 | v0.12 | `spike_telemetry_hub.py` | **Spike telemetry hub (Paradigm A)** — indexed sparse `.spk` store + partial-read windowed queries | **61× smaller** than dense raster; query reads 2% of file |
 | v0.13 | `paradigm_b_matcher.py`, `paradigm_b_genn.py` | **Paradigm B** — compile query→coincidence-detector SNN, stream stored spikes, emit only matches; GeNN GPU port | CPU verified: reads 2% of store, **162× less** host transfer; GeNN for RTX 5070 |
+| v0.14 | `paradigm_b_genn.py`, `paradigm_b_matcher.py` | **Distinct-channel counting** — per-channel one-shot sub-detectors → counter (GeNN); CPU model + spam test | sub-detector rejects single-channel spam (0) where total-counter false-positives (2) |
 
 Reference file `snn_storage_core_snntorch.py` is the original snnTorch blueprint
 extracted from the source research brief (encoder only — does no storage).
@@ -124,7 +125,7 @@ treats them as a roadmap:
 | Paradigm | Idea | Status here |
 |---|---|---|
 | **A** — spike telemetry hub | manage sparse multi-channel spike-trains (cf. `SpikeData`, HRLAnalysis) | **complete (v0.12)** — `spike_telemetry_hub.py`: indexed `.spk` store, partial-read windowed queries, bin/rate/ISI/burst |
-| **B** — in-storage pattern match | compile queries to SNNs, search raw storage at line rate (cf. NPUsearch) | **started (v0.13)** — `paradigm_b_matcher.py` (CPU, verified) + `paradigm_b_genn.py` (GeNN GPU port) |
+| **B** — in-storage pattern match | compile queries to SNNs, search raw storage at line rate (cf. NPUsearch) | **started (v0.13–14)** — `paradigm_b_matcher.py` (CPU, verified) + `paradigm_b_genn.py` (GeNN GPU port, per-channel sub-detectors → distinct-channel counting) |
 | **C** — relational spiking embeddings | encode data in spike *timing* (cf. the SpikE algorithm) | **started v0.11** — `temporal_coding_storage.py` (TTFS) |
 
 **Ecosystem this builds on:** `snnTorch` (used here for LIF + NIR export path),
