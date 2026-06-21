@@ -3,6 +3,25 @@
 All notable changes to the Spiking Neural Data Lake. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); each version is a git tag.
 
+## [v0.6] — MoE + STDP hybrid
+### Added
+- `snn_moe_stdp_mnist.py` — fuses the two real-primitive lines: N unsupervised-STDP
+  expert populations on real MNIST, routed by Project-Nord-style firing-rate gating
+  (top-K of N experts, no learned router network), with a load-balance penalty.
+- `make_results_plot.py` + `assets/results.svg` — reproducible results plot, embedded
+  in the README.
+### Results
+- 74.4% test accuracy (6 experts × 60 neurons, top-2, 4000 images, chance 10%).
+- Routing runs only 2 of 6 experts per image → **3.0× less expert compute** than a
+  dense MoE; **70.3×** vs a dense ANN of the same neuron count.
+- Router has **0 learned parameters** (routing is the spike drive) vs 4,704 for a
+  learned N×784 router.
+### Notes
+- The load-balance penalty drove expert usage perfectly even, so routing balances
+  rather than content-specialises here — accuracy matches a single STDP net; the win
+  is compute + router storage, not accuracy. Lowering `LOAD_BALANCE` trades balance
+  for content routing (and collapse risk).
+
 ## [v0.5] — Scale with real data
 ### Added
 - Configurable scaling for the MNIST STDP model via environment variables —

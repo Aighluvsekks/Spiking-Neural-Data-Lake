@@ -17,6 +17,12 @@ the real-data (MNIST) files use PyTorch + snnTorch.
 
 ---
 
+## Results
+
+![Results by version](assets/results.svg)
+
+Regenerate with `python make_results_plot.py`.
+
 ## Versions at a glance
 
 | Ver | File | What it adds | Headline result |
@@ -26,7 +32,8 @@ the real-data (MNIST) files use PyTorch + snnTorch.
 | v0.2 | `snn_classifier.py` | Supervised **spiking classifier** (local delta rule) | 100% on 4 shapes, 3.6× fewer ops than dense |
 | v0.3 | `snn_mnist_stdp.py` | **Real MNIST** + snnTorch, **unsupervised STDP** (no labels, no backprop) | 74.6% (100 neurons / 3k imgs), 23.5× compute reduction |
 | v0.4 | `snn_moe_classifier.py` | **Spike-driven MoE** routing (ported from Project Nord) | 100%, 4× compute cut, **64× smaller router** |
-| v0.5 | `snn_mnist_stdp.py` | **Scale with real data** — configurable size via env vars | see CHANGELOG |
+| v0.5 | `snn_mnist_stdp.py` | **Scale with real data** — configurable size via env vars | 81.5% (300 neurons / 6k imgs), 23.6× compute |
+| v0.6 | `snn_moe_stdp_mnist.py` | **MoE + STDP hybrid** — firing-rate routing over N STDP expert pops | 74.4% MNIST, 3× routing saving, **0-param router** |
 
 Reference file `snn_storage_core_snntorch.py` is the original snnTorch blueprint
 extracted from the source research brief (encoder only — does no storage).
