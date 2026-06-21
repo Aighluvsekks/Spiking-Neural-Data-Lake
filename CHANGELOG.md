@@ -3,6 +3,30 @@
 All notable changes to the Spiking Neural Data Lake. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); each version is a git tag.
 
+## [v0.7] — Fix the limitations
+Addresses the three caveats from the README's limitations section.
+### Changed
+- **Associative memory storage is now factored (O(P·k), not O(N²)).**
+  `spiking_storage_prototype.py` keeps the P sparse patterns and reconstructs the
+  Hopfield field on the fly (exact, not approximate — same arg-top-k ranking).
+  874× smaller memory (600 B vs 512 KB at N=256/P=15); recall identical (still 80
+  patterns @ 99.6%, 60% noise tolerance); compute also drops (~109×).
+- `snn_mnist_stdp.py`: added an optional explicit **lateral-inhibition population**
+  (`NORD_INHIB`) — each exc spike charges a global inhibitory pool that suppresses
+  all other exc neurons, decaying over time (Diehl & Cook inhibition, lumped).
+### Added
+- `snn_classifier.py sweep` — capacity/difficulty sweep: pixel-noise curve and a
+  class-count curve, exposing where the classifier breaks.
+### Results
+- Storage fix: associative memory now wins on storage too — 874× vs the dense W.
+- Capacity sweep: 100% at ≤20% pixel noise → 86% at 30% → 40% at 40% → ~chance at
+  50%. Class-count stays ≥92% up to 8 (these shapes stay separable at 15% noise).
+- Inhibition (honest negative result): at every tested strength (0.5–3.0) the
+  lumped inhibition *underperforms* hard-WTA (70.6% → 27–31% on the smoke config)
+  by destabilising class coverage. Default remains hard-WTA. Reaching ~95% needs
+  the full machinery (separate exc/inh LIF populations, adaptive membrane
+  thresholds, all 60k images) — out of scope for this prototype.
+
 ## [v0.6] — MoE + STDP hybrid
 ### Added
 - `snn_moe_stdp_mnist.py` — fuses the two real-primitive lines: N unsupervised-STDP

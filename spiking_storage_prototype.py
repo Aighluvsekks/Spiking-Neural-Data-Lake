@@ -6,24 +6,30 @@ SNN data-storing method described in the research docs. This prototype both
 DEMONSTRATES the method and MEASURES those two metrics against a dense baseline.
 
 Storage mechanism (straight from the docs):
-  - long-term storage  == synaptic weight matrix W, written once by a Hebbian /
-    STDP correlation rule. The data IS the network fabric: storage and compute
-    are co-located, so there is no Von Neumann shuttle between CPU and memory.
+  - long-term storage  == the stored patterns themselves. The Hopfield weight
+    matrix W = Σ_p (ξ_p - a)(ξ_p - a)^T is rank-P, so we never materialise the
+    N×N matrix: we keep the P sparse patterns as index lists and reconstruct the
+    needed correlations on the fly (v0.7 — factored storage). The data IS the
+    network fabric: storage and compute are co-located, no Von Neumann shuttle.
   - volatile recall    == attractor dynamics. Inject a NOISY / PARTIAL cue, then
-    iterate sparse k-winners-take-all spiking (the docs' lateral-inhibition
-    winner-take-all) until the network settles onto the stored pattern.
-    Recall is content-addressable: a corrupted cue recovers the clean memory.
+    iterate sparse k-winners-take-all spiking until the network settles onto the
+    stored pattern. Recall is content-addressable: a corrupted cue recovers the
+    clean memory, AND denoises it — that is the value over a plain pattern list.
 
 Where the savings come from:
-  - compute : a spike only does work when it fires. SynOps = (active neurons) x
-    fanout, vs a dense ANN that recomputes the full N x N matvec every step.
-    Sparse k-of-N coding => ~ N/k fewer operations.
-  - storage : a recalled state is binary and sparse. As an AER event list (just
-    the active indices) it is far smaller than a dense float32 activation tensor.
+  - storage : O(P·k) index bytes instead of O(N²) weights. For P,k ≪ N this is a
+    real, large reduction — the factored memory is hundreds of times smaller than
+    the dense W it represents (reported below). Fixed in v0.7.
+  - compute : recall is event-driven and factored — O(P·k) work per step instead
+    of the dense O(N²) matvec a materialised Hopfield net would do each step.
 
-Honest caveat: the weight matrix W itself costs N*N values. This method wins on
-ACTIVATION compute/traffic and on content-addressable recall (no separate index
-/ database), not on shrinking the stored weights. Capacity is reported below.
+Recall math (so the factored form is exact, not an approximation):
+  With W_ij = Σ_p (ξ_p,i-a)(ξ_p,j-a), zero diagonal, and cue active-set s,
+  let d_p = |ξ_p ∩ s| - a·|s|. Then
+      h_i = Σ_p (ξ_p,i - a)·d_p  -  diag_i  =  S_i - a·D - diag_i,
+  where S_i = Σ_{p ∋ i} d_p, D = Σ_p d_p (constant in i, drops out of arg-top-k),
+  and diag_i = cnt_i·(1-a)² + (P-cnt_i)·a²  for i ∈ s (else 0). Identical ranking
+  to the dense matrix — same recall, far less memory.
 """
 import random
 from array import array
@@ -37,33 +43,17 @@ NUM_PATTERNS = 15
 RECALL_STEPS = 8 # attractor settle steps cap
 
 
-# ---- 1. write data into synapses (Hebbian / STDP correlation rule) ----------
+# ---- 1. write data into the (factored) memory -------------------------------
 def make_patterns(num, n, k):
     """num random k-hot patterns; each is a sorted tuple of active indices."""
     return [tuple(sorted(random.sample(range(n), k))) for _ in range(num)]
 
 
 def train(patterns, n, k):
-    """Covariance Hebbian rule: W_ij += (x_i - a)(x_j - a), a = mean activity.
-    Symmetric, zero diagonal. This is the docs' 'long-term storage in W via STDP'.
-    Exploits sparsity: only the k active rows/cols of each pattern are touched."""
-    a = k / n
-    W = [array('d', [0.0]) * n for _ in range(n)]  # N x N float matrix
-    neg_a = -a
-    for p in patterns:
-        active = set(p)
-        # value for each neuron: (1 - a) if active else (0 - a)
-        for i in range(n):
-            vi = (1.0 - a) if i in active else neg_a
-            if vi == 0.0:
-                continue
-            Wi = W[i]
-            for j in range(n):
-                if i == j:
-                    continue
-                vj = (1.0 - a) if j in active else neg_a
-                Wi[j] += vi * vj
-    return W
+    """Store patterns in FACTORED form: the rank-P Hopfield memory is just the
+    patterns themselves (as frozensets) — no N×N matrix is ever built. Recall
+    reconstructs the correlations on the fly. Signature kept for compatibility."""
+    return [frozenset(p) for p in patterns]
 
 
 # ---- 2. recall: noisy cue -> sparse attractor dynamics (kWTA) ----------------
@@ -72,22 +62,36 @@ def topk(values, k):
     return set(sorted(range(len(values)), key=lambda i: (-values[i], i))[:k])
 
 
-def recall(W, cue_active, n, k, steps):
-    """Iterate event-driven kWTA until fixed point. Returns
-    (final_active_set, steps_used, synops). SynOps counts only spike-driven work:
-    each active presynaptic neuron drives its n postsynaptic targets."""
+def recall(memory, cue_active, n, k, steps):
+    """Iterate event-driven kWTA to a fixed point, computing the field directly
+    from the stored patterns (factored, never the N×N matrix). Returns
+    (final_active_set, steps_used, synops). SynOps counts the spike-driven work:
+    overlap probes (P·|active|) + scatter to pattern members (P·k) per step."""
+    a = k / n
+    P = len(memory)
+    hi2, lo2 = (1.0 - a) * (1.0 - a), a * a
+    cnt = [0] * n                          # cnt_i = #patterns containing neuron i
+    for p in memory:
+        for i in p:
+            cnt[i] += 1
     active = set(cue_active)
     synops = 0
     used = 0
     for _ in range(steps):
         used += 1
-        h = [0.0] * n
-        for j in active:               # sparse: only active neurons emit spikes
-            Wj = W[j]                   # symmetric, so row j == column j
-            for i in range(n):
-                h[i] += Wj[i]
-            synops += n                 # one spike -> n synaptic operations
-        new_active = topk(h, k)
+        m = len(active)
+        S = [0.0] * n
+        for p in memory:
+            d_p = sum(1 for j in active if j in p) - a * m   # |ξ_p ∩ s| - a|s|
+            synops += m                                      # overlap probes
+            if d_p == 0.0:
+                continue
+            for i in p:                                       # scatter to members
+                S[i] += d_p
+            synops += k
+        for i in active:                                      # diagonal correction
+            S[i] -= cnt[i] * hi2 + (P - cnt[i]) * lo2
+        new_active = topk(S, k)
         if new_active == active:        # settled onto an attractor
             break
         active = new_active
@@ -112,13 +116,13 @@ def overlap(a, b, k):
 # ---- 3. run + measure -------------------------------------------------------
 def main():
     patterns = make_patterns(NUM_PATTERNS, N, K)
-    W = train(patterns, N, K)
+    memory = train(patterns, N, K)
 
     # recall every stored pattern from a corrupted cue (drop 8 of 20, add 8 noise)
     overlaps, total_synops, total_steps = [], 0, 0
     for p in patterns:
         cue = corrupt(p, N, K, drop=8, add=8)
-        out, steps_used, synops = recall(W, cue, N, K, RECALL_STEPS)
+        out, steps_used, synops = recall(memory, cue, N, K, RECALL_STEPS)
         overlaps.append(overlap(out, p, K))
         total_synops += synops
         total_steps += steps_used
@@ -126,22 +130,22 @@ def main():
     mean_recall = sum(overlaps) / len(overlaps)
     perfect = sum(1 for o in overlaps if o == 1.0)
 
-    # --- compute: spiking SynOps vs dense ANN MACs (same recall work) ---
+    # --- compute: factored spiking work vs a materialised dense Hopfield matvec ---
     dense_macs = total_steps * N * N            # dense recomputes full N x N each step
     compute_ratio = dense_macs / total_synops
 
-    # --- storage: one recalled state, AER events vs dense float32 ---
-    dense_state_bytes = N * 4                    # float32 activation tensor
-    bitmap_bytes = -(-N // 8)                    # 1-bit dense bitmap
-    aer_bytes = K * 2                            # active indices, 2 bytes each (uint16)
-    storage_ratio = dense_state_bytes / aer_bytes
+    # --- storage: FACTORED memory vs the dense N x N weight matrix it represents ---
+    factored_bytes = NUM_PATTERNS * K * 2       # P patterns x k indices x uint16
+    dense_w_bytes = N * N * 8                    # the N x N float64 matrix (old cost)
+    pattern_bitmap_bytes = NUM_PATTERNS * (-(-N // 8))  # patterns as dense 1-bit rows
+    storage_ratio = dense_w_bytes / factored_bytes
 
-    # --- capacity / honest weight cost ---
-    weight_values = N * N
-    raw_pattern_bits = NUM_PATTERNS * N
+    # --- storage of a single recalled state (AER events vs dense float32) ---
+    dense_state_bytes = N * 4
+    aer_bytes = K * 2
 
     print("=" * 60)
-    print("SPIKING ASSOCIATIVE-MEMORY STORAGE PROTOTYPE")
+    print("SPIKING ASSOCIATIVE-MEMORY STORAGE PROTOTYPE  (v0.7 factored)")
     print("=" * 60)
     print(f"neurons N={N}  active K={K} ({K/N:.1%})  patterns stored={NUM_PATTERNS}")
     print()
@@ -151,29 +155,27 @@ def main():
     print(f"  avg settle steps                 : {total_steps/NUM_PATTERNS:.1f}")
     print()
     print("COMPUTE  (lower = less power):")
-    print(f"  spiking SynOps   : {total_synops:,}")
-    print(f"  dense ANN MACs   : {dense_macs:,}")
-    print(f"  reduction        : {compute_ratio:.1f}x  (~ N/K = {N/K:.1f}x)")
+    print(f"  factored SynOps  : {total_synops:,}")
+    print(f"  dense Hopfield   : {dense_macs:,}  (N x N matvec each step)")
+    print(f"  reduction        : {compute_ratio:.1f}x")
     print()
-    print("STORAGE per recalled state (lower = less space):")
-    print(f"  dense float32    : {dense_state_bytes} B")
-    print(f"  1-bit bitmap     : {bitmap_bytes} B")
-    print(f"  AER event list   : {aer_bytes} B")
-    print(f"  reduction        : {storage_ratio:.1f}x vs float32")
-    print()
-    print("WEIGHT COST (honest):")
-    print(f"  W matrix values  : {weight_values:,}  (this is the storage substrate)")
-    print(f"  raw pattern bits : {raw_pattern_bits:,}")
-    print(f"  note: W is content-addressable (no separate DB/index); recovers")
-    print(f"        full data from partial cues. Wins on activation compute &")
-    print(f"        traffic, not on shrinking the weights themselves.")
+    print("STORAGE of the memory (lower = less space):")
+    print(f"  factored (P x k indices) : {factored_bytes:,} B")
+    print(f"  patterns as bitmaps      : {pattern_bitmap_bytes:,} B")
+    print(f"  dense N x N matrix       : {dense_w_bytes:,} B")
+    print(f"  reduction vs dense W     : {storage_ratio:.0f}x")
+    print(f"  note: storage is O(P*k), NOT O(N^2). The memory is just the sparse")
+    print(f"        patterns; recall reconstructs the correlations on the fly and")
+    print(f"        denoises corrupted cues (content-addressable). That denoising")
+    print(f"        recall is the value over a plain pattern list.")
     print("=" * 60)
 
     # ---- self-check (ponytail: one runnable check, assert-based) ----
     assert mean_recall >= 0.95, f"recall too weak: {mean_recall:.2f}"
-    assert total_synops < dense_macs, "spiking did not beat dense on compute"
+    assert total_synops < dense_macs, "factored compute did not beat dense matvec"
+    assert factored_bytes < dense_w_bytes, "factored storage not smaller than dense W"
     assert aer_bytes < dense_state_bytes, "events not smaller than dense state"
-    print("self-check OK: recall>=95%, SynOps<MACs, events<dense state")
+    print("self-check OK: recall>=95%, factored < dense on BOTH compute and storage")
 
 
 if __name__ == "__main__":

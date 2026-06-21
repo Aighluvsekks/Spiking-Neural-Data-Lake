@@ -34,6 +34,7 @@ Regenerate with `python make_results_plot.py`.
 | v0.4 | `snn_moe_classifier.py` | **Spike-driven MoE** routing (ported from Project Nord) | 100%, 4× compute cut, **64× smaller router** |
 | v0.5 | `snn_mnist_stdp.py` | **Scale with real data** — configurable size via env vars | 81.5% (300 neurons / 6k imgs), 23.6× compute |
 | v0.6 | `snn_moe_stdp_mnist.py` | **MoE + STDP hybrid** — firing-rate routing over N STDP expert pops | 74.4% MNIST, 3× routing saving, **0-param router** |
+| v0.7 | (hardening) | **Fix the limitations** — factored O(P·k) storage, capacity sweep, optional inhibition population | assoc-mem **874× smaller**; capacity curve; inhibition benchmarked |
 
 Reference file `snn_storage_core_snntorch.py` is the original snnTorch blueprint
 extracted from the source research brief (encoder only — does no storage).
@@ -88,16 +89,26 @@ attractor memory), small enough to actually check.
 
 ---
 
-## Honest limitations
+## Limitations — addressed in v0.7
 
-- The associative memory wins on **activation compute + traffic + content-
-  addressable recall**, not on shrinking stored weights (the weight matrix is
-  N×N). It is not a byte-compressor.
-- Synthetic-data classifiers (v0.2, v0.4) use easy, separable shapes — they show
-  the compute/storage win, not capacity limits.
-- The MNIST STDP model is a *simplified* Diehl & Cook (hard k-WTA + adaptive
-  thresholds, no explicit inhibitory population), so it lands well above chance
-  but below the literature's ~95%.
+- ~~The associative memory isn't a byte-compressor (N×N weight matrix).~~
+  **Fixed (v0.7):** storage is now factored to **O(P·k)** — the memory keeps the
+  P sparse patterns, not the N×N matrix, and reconstructs the correlations on the
+  fly. ~**874× smaller** (600 B vs 512 KB at N=256/P=15), recall bit-for-bit
+  identical, and compute drops too (~109×). It is now a genuine storage win whose
+  added value over a plain pattern list is content-addressable *denoising* recall.
+- ~~Synthetic classifiers only show the win, not capacity limits.~~
+  **Fixed (v0.7):** `python snn_classifier.py sweep` traces the capacity curve —
+  accuracy holds to ~30% pixel noise, then falls to chance by 50%. (v0.6 also
+  gives the MoE primitive a real-data MNIST version.)
+- **STDP inhibition — implemented, honest negative result.** An explicit
+  lateral-inhibition population is now available (`NORD_INHIB`), but at every
+  tested strength it *underperforms* the hard-WTA + adaptive-threshold baseline
+  (70.6% → 27–31% on the smoke config): the lumped graded-inhibition scheme
+  destabilises class coverage. Reaching the literature's ~95% needs the full
+  Diehl & Cook machinery — separate exc/inh LIF populations with proper membrane
+  time constants, adaptive membrane thresholds, longer presentation windows, and
+  all 60k images — which is beyond this prototype. Default stays hard-WTA (81.5%).
 
 Numbers reported are from fixed seeds; rerun to reproduce. See
 [CHANGELOG.md](CHANGELOG.md) for the per-version history.

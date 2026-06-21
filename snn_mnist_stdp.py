@@ -51,9 +51,13 @@ THRESH = 8.0       # base membrane firing threshold
 THETA_PLUS = 0.4   # adaptive-threshold bump per spike (homeostasis - the fix
                    #   that forces neurons to specialise instead of one winning all)
 THETA_DECAY = 1.0  # theta persistence during training (1.0 = no decay)
+# v0.7: explicit lateral-inhibition population (Diehl & Cook). NORD_INHIB>0 turns
+# it on: each exc spike charges a global inhibitory pool that suppresses ALL other
+# exc neurons (inh->exc all-but-self), decaying over time — graded competition
+# instead of hard "zero everyone". NORD_INHIB=0 keeps the v0.5 hard-WTA baseline.
+INHIB = float(os.environ.get("NORD_INHIB", "0"))
+INH_DECAY = 0.9    # inhibitory pool decay per timestep
 N_IN = 28 * 28
-# ponytail upgrade path: replace hard k-WTA with an explicit snn.Leaky inhibitory
-# population for the last few % of Diehl&Cook accuracy.
 
 
 def load_mnist(n_train, n_test):
@@ -91,6 +95,7 @@ class StdpNetwork:
         mem = self.lif.init_leaky()
         x_pre = torch.zeros(N_IN)
         counts = torch.zeros(M)
+        inh = 0.0                                          # inhibitory pool charge
         synops = 0
         rates = image * MAX_RATE
         for _ in range(T):
@@ -99,9 +104,8 @@ class StdpNetwork:
             cur = self.W @ s_in                            # sparse: drives exc
             synops += int(s_in.sum().item()) * M
             _, mem = self.lif(cur, mem)                    # snnTorch leaky integration
-            # adaptive-threshold hard WTA: the single strongest neuron, AFTER its
-            # own homeostatic threshold, fires if it clears the base threshold.
-            eff = mem - self.theta
+            # effective drive = membrane - own adaptive threshold - global inhibition
+            eff = mem - self.theta - (INHIB * inh)
             winner = int(eff.argmax().item())
             if eff[winner] > THRESH:
                 counts[winner] += 1
@@ -111,7 +115,15 @@ class StdpNetwork:
                     self.W[winner] += LR * x_pre
                     self.W[winner].clamp_(0.0, WMAX)
                     self.theta[winner] += THETA_PLUS       # raise its own bar
-                mem = torch.zeros(M)                        # WTA reset all
+                if INHIB > 0:
+                    inh += 1.0                              # charge inhibitory pool
+                    mem[winner] = 0.0                      # reset only the spiker;
+                    # others stay charged but are held down by `inh` (graded
+                    # lateral inhibition = the Diehl & Cook inhibitory population)
+                else:
+                    mem = torch.zeros(M)                    # baseline hard WTA
+            if INHIB > 0:
+                inh *= INH_DECAY                            # inhibition decays
             if learn:
                 self.theta *= THETA_DECAY
         if learn:
