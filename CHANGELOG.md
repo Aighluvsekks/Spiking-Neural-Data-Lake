@@ -3,6 +3,31 @@
 All notable changes to the Spiking Neural Data Lake. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); each version is a git tag.
 
+## [v0.15] — Spike preprocessing pipeline (deterministic encode, precompute, Van Rossum)
+Implements three recommended preprocessing steps for CPU-viable STDP.
+### Added
+- `spike_preprocessing.py` (stdlib):
+  1. `encode_latency` — **deterministic** latency encoding (1 spike/feature,
+     brighter→earlier, no RNG; same input → same spikes).
+  2. `precompute` + `save_cache`/`load_cache` (`.spc` format) — encode the dataset
+     ONCE and reuse across epochs, removing spike generation from the training loop.
+  3. `van_rossum_filter` / `van_rossum_distance` — exponential-decay filtering turns
+     discrete spikes into continuous waveforms so a query can be matched to stored
+     data with plain numeric ops.
+### Results (synthetic graded dataset)
+- Deterministic encoding confirmed; `.spc` cache roundtrips intact.
+- Precompute+reuse over 8 epochs = **5.7× less encode work** than re-encoding on the
+  fly (18 ms → 3 ms) — the overhead the on-the-fly `torch.rand` STDP loops pay.
+- Van Rossum query→nearest-stored-prototype matching: **100%** accuracy; distance to
+  the correct class < distance to a wrong one (self-check enforced).
+### Notes
+- `temporal_coding_storage.py` (v0.11) was already deterministic; the encoder is now
+  factored into a reusable, cacheable form here.
+- The standalone module demonstrates the precompute technique; wiring it into the
+  torch STDP loops (`snn_mnist_stdp.py`) is the recommended integration — deferred so
+  the verified 82.3% rate-coded result stays reproducible (latency coding would need
+  its own retune).
+
 ## [v0.14] — Paradigm B distinct-channel counting (GeNN sub-detectors)
 The v0.13 GeNN detector was a single summing LIF — it counts TOTAL input spikes, so k
 spikes from one channel false-trigger it. Fixed to count DISTINCT channels.

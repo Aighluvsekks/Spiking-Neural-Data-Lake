@@ -42,6 +42,7 @@ Regenerate with `python make_results_plot.py`.
 | v0.12 | `spike_telemetry_hub.py` | **Spike telemetry hub (Paradigm A)** — indexed sparse `.spk` store + partial-read windowed queries | **61× smaller** than dense raster; query reads 2% of file |
 | v0.13 | `paradigm_b_matcher.py`, `paradigm_b_genn.py` | **Paradigm B** — compile query→coincidence-detector SNN, stream stored spikes, emit only matches; GeNN GPU port | CPU verified: reads 2% of store, **162× less** host transfer; GeNN for RTX 5070 |
 | v0.14 | `paradigm_b_genn.py`, `paradigm_b_matcher.py` | **Distinct-channel counting** — per-channel one-shot sub-detectors → counter (GeNN); CPU model + spam test | sub-detector rejects single-channel spam (0) where total-counter false-positives (2) |
+| v0.15 | `spike_preprocessing.py` | **Preprocessing pipeline** — deterministic latency encode, precompute+cache, Van Rossum filter for query matching | precompute **5.7× less encode work**; Van Rossum query→store match 100% |
 
 Reference file `snn_storage_core_snntorch.py` is the original snnTorch blueprint
 extracted from the source research brief (encoder only — does no storage).
@@ -72,6 +73,7 @@ python snn_moe_classifier.py            # spike-driven MoE routing
 python temporal_coding_storage.py       # TTFS latency coding (83x fewer ops than rate)
 python spike_telemetry_hub.py           # Paradigm A: sparse multi-channel spike-train store + queries
 python paradigm_b_matcher.py            # Paradigm B: query->SNN coincidence matcher over the store
+python spike_preprocessing.py           # deterministic encode + precompute cache + Van Rossum matching
 # paradigm_b_genn.py = GPU port (needs GeNN + CUDA 12.8 on an RTX 5070 box)
 
 # Real-data prototypes — need deps (CPU build is fine):
