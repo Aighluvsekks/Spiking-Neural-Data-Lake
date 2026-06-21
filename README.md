@@ -38,6 +38,7 @@ Regenerate with `python make_results_plot.py`.
 | v0.8 | `snn_mnist_stdp.py`, `snn_mnist_dc.py` | **Inhibition study** — 3 inhibition designs benchmarked; tuned homeostasis | STDP **81.5% → 82.3%**; hard-WTA confirmed best |
 | v0.9 | `eth_mnist_bindsnet.py` | **Path to ~95%** — wires in BindsNET's conductance-based Diehl & Cook | verified 100n/10k → **76.0%** (→82.9% full); 6400 → 95% (GPU) |
 | v0.10 | `eth_mnist_bindsnet.py` | **`--gpu` switch** — one-flag CUDA run; RTX 5070 (Blackwell) cu128 hint + CPU fallback | 6400→95% is now one switch on a GPU box |
+| v0.11 | `temporal_coding_storage.py` | **Temporal (TTFS) coding** — latency-coded inference, 1 spike/input + early exit | same 100% acc as rate, **83.5× fewer SynOps** |
 
 Reference file `snn_storage_core_snntorch.py` is the original snnTorch blueprint
 extracted from the source research brief (encoder only — does no storage).
@@ -65,6 +66,7 @@ python spiking_storage_prototype.py     # associative memory + savings report
 python test_prototype.py                # capacity / noise sweeps
 python snn_classifier.py                # supervised spiking classifier
 python snn_moe_classifier.py            # spike-driven MoE routing
+python temporal_coding_storage.py       # TTFS latency coding (83x fewer ops than rate)
 
 # Real-data prototypes — need deps (CPU build is fine):
 pip install -r requirements.txt
@@ -101,6 +103,36 @@ Project Nord climbs: same primitives (LIF, STDP, sparse WTA / firing-rate MoE,
 attractor memory), small enough to actually check.
 
 ---
+
+## Scope, related work & roadmap
+
+**What this is:** a collection of small, runnable, mostly-stdlib SNN prototypes that
+*demonstrate and measure* the spike-based data-storage / low-compute thesis —
+associative memory, STDP feature learning, spike-driven MoE routing, and temporal
+coding. Every file prints metrics and self-checks. **What this is not (yet):** a
+production data-lake service. The name is the north star, not the current state.
+
+An external architectural assessment (Gemini, v0.11) mapped the "spiking neural data
+lake" idea to three paradigms; this repo currently lives in the algorithm layer and
+treats them as a roadmap:
+
+| Paradigm | Idea | Status here |
+|---|---|---|
+| **A** — spike telemetry hub | manage sparse multi-channel spike-trains (cf. `SpikeData`, HRLAnalysis) | partial — AER/event-list storage in `spiking_storage_prototype.py` |
+| **B** — in-storage pattern match | compile queries to SNNs, search raw storage at line rate (cf. NPUsearch) | roadmap — needs neuromorphic/NPU hardware |
+| **C** — relational spiking embeddings | encode data in spike *timing* (cf. the SpikE algorithm) | **started v0.11** — `temporal_coding_storage.py` (TTFS) |
+
+**Ecosystem this builds on:** `snnTorch` (used here for LIF + NIR export path),
+`SpikingJelly` (CUDA/Triton SNN training), `BindsNET` (used in v0.9 for conductance
+Diehl & Cook), `SpikeData` (sparse spike-train management), `SpikE` (spike-time graph
+embeddings), `NPUsearch` (in-storage neuromorphic search).
+
+**Model math:** all neurons are Leaky Integrate-and-Fire,
+`τ dU/dt = −U + R·I`, Euler-discretised per step, with threshold-reset; the v0.9
+BindsNET path additionally uses conductance-based synapses with a decaying synaptic
+current. Deferred infra from the assessment (Parquet storage tier, OpenTelemetry
+observability, in-storage NPU execution) is intentionally out of scope for a
+research-prototype repo.
 
 ## Limitations — addressed in v0.7
 

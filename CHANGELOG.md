@@ -3,6 +3,26 @@
 All notable changes to the Spiking Neural Data Lake. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); each version is a git tag.
 
+## [v0.11] — Temporal (TTFS) coding, from the architectural assessment
+Acted on an external architectural assessment (Gemini). The assessment was produced
+WITHOUT repo access (speculative, name-based), so its applicable, on-theme ideas were
+adopted and its production-infra suggestions (Parquet tier, OpenTelemetry, in-storage
+NPU) were left as out-of-scope roadmap.
+### Added
+- `temporal_coding_storage.py` — time-to-first-spike (latency) coding, realising the
+  assessment's Paradigm C ("more salient data spikes earlier", cf. the SpikE idea).
+  Trains a linear readout once, then compares rate vs TTFS inference on the same
+  weights: **TTFS matches accuracy (100%) at 83.5x fewer SynOps** (5,300 vs 442,775),
+  deciding at avg step 6.5/32 via early exit (1 spike per input + stop at first class
+  over threshold).
+- README "Scope, related work & roadmap" section: honest what-this-is/isn't, the three
+  assessment paradigms as a roadmap (A telemetry / B in-storage search / C spiking
+  embeddings — C started here), the SNN ecosystem (snnTorch/SpikingJelly/BindsNET/
+  SpikeData/SpikE/NPUsearch), and the LIF model math.
+### Note
+- Temporal coding is a genuinely different efficiency axis from the rest of the lake
+  (which is rate-coded): the win is from spike *timing* + early exit, not sparsity.
+
 ## [v0.10] — `--gpu` switch for the BindsNET runner
 ### Added
 - `--gpu` / `--device <dev>` flag (and `NORD_GPU=1` env) on `eth_mnist_bindsnet.py`:
