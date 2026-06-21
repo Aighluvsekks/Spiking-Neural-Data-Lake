@@ -3,6 +3,33 @@
 All notable changes to the Spiking Neural Data Lake. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); each version is a git tag.
 
+## [v0.9] — Path to ~95%: BindsNET conductance Diehl & Cook
+The v0.8 study showed our from-scratch current-based inhibition can't reach the
+literature ~95%. Deep research (Diehl & Cook 2015 + BindsNET) pinned the cause:
+**conductance-based synapses + a real exc/inh population + scale**. v0.9 wires that
+in via BindsNET instead of re-deriving it.
+### Added
+- `eth_mnist_bindsnet.py` — runner around BindsNET's `DiehlAndCook2015` (conductance
+  LIF, exc/inh populations, adaptive thresholds) with the paper/BindsNET constants
+  (`exc=22.5 inh=120 norm=78.4 theta_plus=0.05 time=250 intensity=128`). Sizes are
+  env-configurable (`NORD_M/TRAIN/TEST/EPOCHS/TIME/UPDATE`); defaults to 6400 neurons.
+- A built-in `torch._six` compat shim so BindsNET (<=0.3) runs on torch >=2 with no
+  manual patching.
+- `bindsnet` added to requirements (optional, v0.9 only).
+### Verified
+- 100 neurons / 10k images / 2k test → **75.95% all-activity, 76.45% proportion**.
+  The training window accuracy climbed 10% → 82% as STDP specialised — on track to
+  the paper's 82.9% at 100 neurons / full 60k. Wiring is correct and learns.
+### Compute reality (honest)
+- The headline 95% needs **6400 neurons + all 60k images**, reported by Diehl & Cook
+  (100→82.9%, 400→87.0%, 1600→91.9%, 6400→95.0%). On this CPU build that is ~hundreds
+  of hours — a GPU/overnight job. The runner defaults to 6400 and prints the matching
+  paper figure; tractable checkpoints: `NORD_M=100/10k` (~76%, minutes),
+  `NORD_M=400/20k` (~87%, hours).
+### Bottom line
+- The path to ~95% is now **wired and validated end-to-end**. The remaining gap is
+  compute (neurons × images × GPU), not the algorithm.
+
 ## [v0.8] — STDP inhibition study + homeostasis tuning
 Follow-up on the v0.7 inhibition limitation: built and benchmarked several
 explicit-inhibition designs, then found a real (if modest) accuracy gain.

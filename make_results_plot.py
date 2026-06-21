@@ -8,7 +8,7 @@ from pathlib import Path
 # (version, test accuracy %, dataset) — classifier versions only
 ACC = [("v0.2", 100.0, "4-shape"), ("v0.3", 74.6, "MNIST"),
        ("v0.5", 81.5, "MNIST"), ("v0.6", 74.4, "MNIST"),
-       ("v0.8", 82.3, "tuned")]
+       ("v0.8", 82.3, "tuned"), ("v0.9", 76.0, "BindsNET*")]
 # (version, compute reduction x vs dense baseline)
 COMP = [("v0.3", 23.5), ("v0.5", 23.6), ("v0.4", 4.0), ("v0.6", 3.0)]
 

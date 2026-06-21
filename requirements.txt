@@ -8,3 +8,8 @@ torch
 torchvision
 snntorch
 numpy
+
+# v0.9 only — BindsNET Diehl & Cook runner (eth_mnist_bindsnet.py).
+# NOTE: BindsNET <=0.3 imports torch._six (removed in torch >=2.0); the runner
+# ships a built-in shim so it works on modern torch — no manual patching needed.
+bindsnet

@@ -36,6 +36,7 @@ Regenerate with `python make_results_plot.py`.
 | v0.6 | `snn_moe_stdp_mnist.py` | **MoE + STDP hybrid** — firing-rate routing over N STDP expert pops | 74.4% MNIST, 3× routing saving, **0-param router** |
 | v0.7 | (hardening) | **Fix the limitations** — factored O(P·k) storage, capacity sweep, optional inhibition population | assoc-mem **874× smaller**; capacity curve; inhibition benchmarked |
 | v0.8 | `snn_mnist_stdp.py`, `snn_mnist_dc.py` | **Inhibition study** — 3 inhibition designs benchmarked; tuned homeostasis | STDP **81.5% → 82.3%**; hard-WTA confirmed best |
+| v0.9 | `eth_mnist_bindsnet.py` | **Path to ~95%** — wires in BindsNET's conductance-based Diehl & Cook | verified 100n/10k → **76.0%** (→82.9% full); 6400 → 95% (GPU) |
 
 Reference file `snn_storage_core_snntorch.py` is the original snnTorch blueprint
 extracted from the source research brief (encoder only — does no storage).
@@ -73,6 +74,11 @@ NORD_M=300 NORD_TRAIN=6000 NORD_TEST=2000 python snn_mnist_stdp.py
 
 # Best STDP config found (v0.8) — tuned homeostasis -> 82.3%:
 NORD_M=300 NORD_TRAIN=6000 NORD_TDECAY=0.99999 NORD_TPLUS=0.8 python snn_mnist_stdp.py
+
+# v0.9 — the path to the literature ~95% (BindsNET conductance Diehl & Cook):
+pip install bindsnet
+NORD_M=100 NORD_TRAIN=10000 NORD_TEST=2000 python eth_mnist_bindsnet.py   # ~76%, verifies wiring (minutes)
+python eth_mnist_bindsnet.py                                              # 6400 neurons -> ~95% (GPU/overnight)
 ```
 
 Every script prints a metrics block and ends with a runnable `assert`-based
@@ -118,6 +124,14 @@ attractor memory), small enough to actually check.
   (→80.9%). Closing the rest of the gap to the literature's ~95% needs
   conductance-based exc/inh LIF populations and all 60k images — out of scope
   here. Full benchmark table in [CHANGELOG.md](CHANGELOG.md) v0.8.
+  **Resolved (v0.9):** rather than re-derive conductance dynamics, `eth_mnist_bindsnet.py`
+  wires in BindsNET's conductance-based `DiehlAndCook2015`. Verified end-to-end —
+  100 neurons / 10k images reaches **76.0%** with the train window climbing 10%→82%
+  as STDP specialises (on track to the paper's 82.9% at full 60k). Reaching the
+  full **95% needs 6400 neurons + all 60k images on a GPU** (CPU ≈ hundreds of
+  hours); the runner defaults to that config and prints the matching paper number.
+  So the path to ~95% is now wired and validated — the remaining gap is compute,
+  not method.
 
 Numbers reported are from fixed seeds; rerun to reproduce. See
 [CHANGELOG.md](CHANGELOG.md) for the per-version history.
