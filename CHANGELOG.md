@@ -3,6 +3,25 @@
 All notable changes to the Spiking Neural Data Lake. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); each version is a git tag.
 
+## [v0.21] — Paradigm C complete: relational spiking embeddings (SpikE)
+v0.11–18 built Paradigm C's encoding side (TTFS, deterministic latency, Van Rossum). The
+missing SpikE core is RELATIONAL: store a knowledge graph in spike timing and reason over it.
+### Added
+- `spike_knowledge_graph.py` (stdlib): a SpikE-style embedding —
+  - entities = spike-latency vectors `s_e ∈ R^D`; relations = spike-time offsets `δ_r`.
+  - a triple (h,r,t) holds when `s_t ≈ s_h + δ_r` (TransE in spike-time space).
+  - learns `s_e`, `δ_r` from triples only (margin-ranking SGD, ball-projected entities).
+  - **link prediction** (h,r,?) by ranking tails on spike-time translation, and
+    **anomaly scoring** (triple score = `||s_h+δ_r−s_t||`).
+### Verified (3-axis lattice KG, 64 entities, 3 relations)
+- Link prediction: **Hits@1 50.0%, Hits@3 63.6%, MRR 0.581** (random ~1.6%).
+- Anomaly: random triples score **2.2×** higher than true triples (clean separation).
+- Self-check enforces Hits@1 ≥ 50% and anomaly separation > 2×.
+### Milestone
+- **All three assessment paradigms now complete: A (v0.12) · B (v0.20) · C (v0.21).**
+  Notes: TransE models translational/lattice relations, not cyclic ones (that needs
+  RotatE) — the demo KG is a lattice so the spike-time translation holds exactly.
+
 ## [v0.20] — Paradigm B complete: in-storage spike-query engine
 v0.13–14 had one query type (coincidence). A real in-storage search engine needs the
 SNN-native query a von-Neumann scan struggles with: temporal ORDER.
