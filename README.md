@@ -46,6 +46,7 @@ Regenerate with `python make_results_plot.py`.
 | v0.16 | `snn_mnist_stdp_fast.py` | **Latency vs rate STDP** — precomputed deterministic latency coding, head-to-head | **2.1× faster, 7.9× fewer SynOps**, but **−13.5 pts acc** (82.3→68.8%) |
 | v0.17 | `snn_mnist_stdp_fast.py` | **Close the gap** — graded burst encoding + LTD depression (x_tar) | gap **−13.5→−6.2 pts** (latency 68.8→**76.0%**); still 2.1× faster, 2.6× fewer SynOps |
 | v0.18 | `snn_mnist_stdp_fast.py`, `spike_preprocessing.py` | **Pair-based STDP** (kernel; honest negative) + **determinism proof** for query identity | pair-LTD degrades (kept opt-in, default off); Poisson breaks query identity (dist 13.4) vs deterministic (0.0) |
+| v0.19 | `snn_mnist_stdp_genn.py` | **GeNN custom plasticity** — the working v0.17 burst+x_tar rule as a GPU `create_weight_update_model`, SpikeSourceArray determinism | GPU port (needs GeNN/CUDA 12.8); rule math = CPU-verified `snn_mnist_stdp_fast` |
 
 Reference file `snn_storage_core_snntorch.py` is the original snnTorch blueprint
 extracted from the source research brief (encoder only — does no storage).
@@ -100,6 +101,9 @@ NORD_M=100 NORD_TRAIN=10000 NORD_TEST=2000 python eth_mnist_bindsnet.py   # ~76%
 python eth_mnist_bindsnet.py --gpu                                        # 6400 neurons -> ~95% (one switch, GPU)
 # RTX 5070 (Blackwell) GPU? install a CUDA 12.8+ torch first:
 #   pip install --force-reinstall torch torchvision --index-url https://download.pytorch.org/whl/cu128
+
+# v0.19 — GeNN GPU STDP with the working rule injected as custom CUDA plasticity:
+python snn_mnist_stdp_genn.py            # needs GeNN 5 + pygenn + CUDA 12.8 on the GPU box
 ```
 
 Every script prints a metrics block and ends with a runnable `assert`-based

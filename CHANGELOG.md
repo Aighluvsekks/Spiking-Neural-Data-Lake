@@ -3,6 +3,25 @@
 All notable changes to the Spiking Neural Data Lake. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); each version is a git tag.
 
+## [v0.19] — GeNN custom plasticity (inject the working rule onto the GPU)
+Acts on the RTX 5070 architecture guidance: rather than GeNN's standard pair-STDP
+(which degraded, v0.18), inject the v0.17 rule that WORKS as a custom GPU weight-update.
+### Added
+- `snn_mnist_stdp_genn.py` — GeNN 5 STDP-MNIST trainer:
+  - `burst_xtar_rule()` = `create_weight_update_model` with the v0.17 rule in C++:
+    post-spike LTP `g += lr*(preTrace − xtar)`, clamped — the literal GPU form of
+    `snn_mnist_stdp_fast.py`'s `W[w] += FAST_LR*(x_pre − FAST_XTAR)`.
+  - SpikeSourceArray for the deterministic burst-latency input (exact timestamps to
+    VRAM once → identical inputs stay identical → Van Rossum 0, query identity holds).
+  - `model.build()` nvcc-compiles the network, collapsing the O(T) loop on-GPU — the
+    route past the ~82% CPU ceiling toward the ~95% regime (with 6400 neurons + 60k).
+  - Import-guarded: prints setup guidance + exits cleanly without GeNN.
+### Status
+- Cannot run on the dev box (no pygenn / CUDA / C++ compiler). The rule + encoding are
+  CPU-verified in `snn_mnist_stdp_fast.py` (76.0%); this is the faithful GPU port.
+  GeNN weight-update field names vary by version — the version-stable part is the C++
+  rule body, which matches the verified math.
+
 ## [v0.18] — Pair-based STDP kernel (honest negative) + query-identity determinism
 Tried to take the last ~6 points with a proper pair-based STDP kernel, and proved why
 the query/router path must use deterministic encoding.
