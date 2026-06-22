@@ -89,8 +89,10 @@ NORD_M=300 NORD_TRAIN=6000 NORD_TEST=2000 python snn_mnist_stdp.py
 # Best STDP config found (v0.8) — tuned homeostasis -> 82.3%:
 NORD_M=300 NORD_TRAIN=6000 NORD_TDECAY=0.99999 NORD_TPLUS=0.8 python snn_mnist_stdp.py
 
-# v0.16 — latency vs rate head-to-head (precomputed deterministic latency coding):
+# v0.16-18 — latency vs rate STDP, deterministic + precomputed. Defaults are the
+# v0.17 gap-closer (graded burst + x_tar LTD -> 76%, gap -6.2 vs rate's 82.3%):
 NORD_M=300 NORD_TRAIN=6000 NORD_TEST=2000 NORD_TDECAY=0.99999 NORD_TPLUS=0.8 python snn_mnist_stdp_fast.py
+# FAST_BURST=1 FAST_XTAR=0 -> v0.16 pure latency; FAST_AMINUS>0 -> v0.18 pair-STDP kernel (opt-in, underperforms)
 
 # v0.9 — the path to the literature ~95% (BindsNET conductance Diehl & Cook):
 pip install bindsnet
@@ -134,7 +136,13 @@ treats them as a roadmap:
 |---|---|---|
 | **A** — spike telemetry hub | manage sparse multi-channel spike-trains (cf. `SpikeData`, HRLAnalysis) | **complete (v0.12)** — `spike_telemetry_hub.py`: indexed `.spk` store, partial-read windowed queries, bin/rate/ISI/burst |
 | **B** — in-storage pattern match | compile queries to SNNs, search raw storage at line rate (cf. NPUsearch) | **started (v0.13–14)** — `paradigm_b_matcher.py` (CPU, verified) + `paradigm_b_genn.py` (GeNN GPU port, per-channel sub-detectors → distinct-channel counting) |
-| **C** — relational spiking embeddings | encode data in spike *timing* (cf. the SpikE algorithm) | **started v0.11** — `temporal_coding_storage.py` (TTFS) |
+| **C** — relational spiking embeddings | encode data in spike *timing* (cf. the SpikE algorithm) | **started (v0.11–18)** — TTFS coding, deterministic latency encode + Van Rossum query matching (`temporal_coding_storage.py`, `spike_preprocessing.py`) |
+
+**Design principle (v0.18):** the query/router path must use **deterministic** encoding.
+The same input has to encode to the same spike train or it can't be recognised as the
+same query — Poisson re-encoding one MNIST image gives Van Rossum distance ~13 (looks
+like different data) vs **0** for deterministic latency. Stochastic encoding is fine for
+training augmentation, never for identity/matching.
 
 **Ecosystem this builds on:** `snnTorch` (used here for LIF + NIR export path),
 `SpikingJelly` (CUDA/Triton SNN training), `BindsNET` (used in v0.9 for conductance
