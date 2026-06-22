@@ -30,8 +30,16 @@ FAST_THRESH = float(os.environ.get("FAST_THRESH", "2.0"))   # higher: burst rais
 FAST_LR = float(os.environ.get("FAST_LR", "0.05"))
 FAST_XTAR = float(os.environ.get("FAST_XTAR", "0.05"))      # LTD depression (Diehl&Cook x_tar) -> sharper prototypes
 FAST_BURST = int(os.environ.get("FAST_BURST", "4"))         # spikes/pixel ∝ intensity: restores magnitude info + trace
+# v0.18 pair-based STDP kernel: pre-triggered LTD via a post-synaptic trace.
+# An input arriving AFTER the neuron fired (anti-causal) depresses that synapse,
+# in proportion to how recently the neuron fired (x_post). Available as an opt-in,
+# but DEFAULT 0: benchmarking showed it DEGRADES accuracy here (see CHANGELOG v0.18),
+# so the v0.17 LTP+x_tar rule stays the default. Set FAST_AMINUS>0 to experiment.
+FAST_AMINUS = float(os.environ.get("FAST_AMINUS", "0.0"))
+TAU_POST = float(os.environ.get("TAU_POST", "20.0"))
 FLOOR = 0.10
 PRE_DECAY = float(torch.exp(torch.tensor(-1.0 / TAU_PRE)))
+POST_DECAY = float(torch.exp(torch.tensor(-1.0 / TAU_POST)))
 
 
 def encode_latency(img):
@@ -69,13 +77,18 @@ class FastStdpNetwork:
     def run(self, times, idx, learn):
         mem = torch.zeros(M)
         x_pre = torch.zeros(N_IN)
+        x_post = torch.zeros(M)                            # post-synaptic trace (pair STDP)
         counts = torch.zeros(M)
         synops = 0
         for t in range(T):
             x_pre = x_pre * PRE_DECAY
+            x_post = x_post * POST_DECAY
             sel = times == t
             if bool(sel.any()):
                 fi = idx[sel]
+                if learn and FAST_AMINUS > 0:              # pair LTD: pre after post -> depress
+                    self.W[:, fi] -= FAST_AMINUS * x_post.unsqueeze(1)
+                    self.W[:, fi].clamp_(0.0, WMAX)
                 x_pre[fi] += 1.0
                 mem = mem * BETA + self.W[:, fi].sum(dim=1)   # spike-driven current
                 synops += fi.numel() * M
@@ -86,11 +99,12 @@ class FastStdpNetwork:
             if eff[w] > FAST_THRESH:
                 counts[w] += 1
                 if learn:
-                    # Diehl&Cook-style update: potentiate by causal pre-trace, depress
-                    # toward x_tar (unfired synapses -> -FAST_XTAR -> sharper prototypes)
+                    # pair LTP: pre before post -> potentiate by causal pre-trace,
+                    # minus x_tar baseline depression for sharper prototypes
                     self.W[w] += FAST_LR * (x_pre - FAST_XTAR)
                     self.W[w].clamp_(0.0, WMAX)
                     self.theta[w] += THETA_PLUS
+                    x_post[w] += 1.0                       # mark this neuron just fired
                 mem = torch.zeros(M)
             if learn:
                 self.theta *= THETA_DECAY

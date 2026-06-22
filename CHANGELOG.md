@@ -3,6 +3,33 @@
 All notable changes to the Spiking Neural Data Lake. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); each version is a git tag.
 
+## [v0.18] — Pair-based STDP kernel (honest negative) + query-identity determinism
+Tried to take the last ~6 points with a proper pair-based STDP kernel, and proved why
+the query/router path must use deterministic encoding.
+### Added
+- Pair-based STDP in `snn_mnist_stdp_fast.py`: a post-synaptic trace `x_post` and
+  pre-triggered **LTD** (`FAST_AMINUS`, `TAU_POST`) — an input arriving after the
+  neuron fired (anti-causal) depresses that synapse. The full kernel = causal LTP
+  (post-spike, x_pre) + anti-causal LTD (pre-spike, x_post).
+- `encode_poisson` + a query-identity demo/self-check in `spike_preprocessing.py`.
+### Result A — pair kernel does NOT close the gap (negative, kept opt-in)
+- LTD degrades accuracy at every tested strength, in both encodings:
+  burst=4 72.0% → 65–70% (A−=0.005–0.02); pure latency 60.4% → 57–58%.
+- Cause: anti-causal LTD erodes prototypes in this hard-WTA unsupervised setup (and
+  fights the burst's later spikes). Rate coding's edge is its repeated stochastic
+  sampling, not a missing LTD term — single-pass deterministic latency can't replicate
+  that. So `FAST_AMINUS` defaults to 0; the v0.17 rule (76.0%, gap −6.2) stays best.
+### Result B — determinism is REQUIRED for query identity (positive)
+- The same MNIST image encoded twice: deterministic latency → Van Rossum distance
+  **0.000** (recognised as the SAME query); Poisson → **13.37** (looks like different
+  data). Confirms the router/match path must use the deterministic encoder; Poisson's
+  per-call randomness destroys query identity. Enforced by a self-check.
+### Honest status
+- The residual ~6-point gap stands. It is not a missing-rule problem; it is the
+  information difference between one deterministic pass and many stochastic samples.
+  Likely closers are more neurons / data or a fundamentally different (non-WTA)
+  readout — not this kernel.
+
 ## [v0.17] — Close the latency↔rate gap (burst encoding + LTD)
 Halved the v0.16 accuracy gap while keeping the latency path's efficiency edge.
 ### Diagnosis

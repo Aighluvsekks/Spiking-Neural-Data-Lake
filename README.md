@@ -45,6 +45,7 @@ Regenerate with `python make_results_plot.py`.
 | v0.15 | `spike_preprocessing.py` | **Preprocessing pipeline** — deterministic latency encode, precompute+cache, Van Rossum filter for query matching | precompute **5.7× less encode work**; Van Rossum query→store match 100% |
 | v0.16 | `snn_mnist_stdp_fast.py` | **Latency vs rate STDP** — precomputed deterministic latency coding, head-to-head | **2.1× faster, 7.9× fewer SynOps**, but **−13.5 pts acc** (82.3→68.8%) |
 | v0.17 | `snn_mnist_stdp_fast.py` | **Close the gap** — graded burst encoding + LTD depression (x_tar) | gap **−13.5→−6.2 pts** (latency 68.8→**76.0%**); still 2.1× faster, 2.6× fewer SynOps |
+| v0.18 | `snn_mnist_stdp_fast.py`, `spike_preprocessing.py` | **Pair-based STDP** (kernel; honest negative) + **determinism proof** for query identity | pair-LTD degrades (kept opt-in, default off); Poisson breaks query identity (dist 13.4) vs deterministic (0.0) |
 
 Reference file `snn_storage_core_snntorch.py` is the original snnTorch blueprint
 extracted from the source research brief (encoder only — does no storage).

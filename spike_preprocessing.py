@@ -44,6 +44,24 @@ def encode_latency(vec, t_steps=T, floor=FLOOR):
     return out
 
 
+def encode_poisson(vec, t_steps=T, floor=FLOOR, rate=0.5):
+    """Stochastic RATE encoding: each feature >= floor spikes with prob v*rate per
+    step. NON-deterministic by design — two calls on the SAME input give DIFFERENT
+    spike trains. That is exactly why a Poisson-encoded query can't be recognised as
+    'the same data': an R-STDP router or a Van Rossum metric sees two distinct trains.
+    Hence the query/router path must use the deterministic encoder above."""
+    out = []
+    for i, v in enumerate(vec):
+        if v < floor:
+            continue
+        p = v * rate
+        for t in range(t_steps):
+            if random.random() < p:
+                out.append((t, i))
+    out.sort()
+    return out
+
+
 # ---- 2. precompute + cache --------------------------------------------------
 def precompute(dataset, t_steps=T, floor=FLOOR):
     """Encode the whole dataset up front -> list of spike-event lists."""
@@ -163,6 +181,14 @@ def main():
         correct += (pred == y)
     acc = correct / len(dataset)
     print(f"3. Van Rossum matching    : query->nearest stored prototype acc={acc:.1%}")
+
+    # 4. determinism is REQUIRED for query identity (Poisson breaks it)
+    img = dataset[0]
+    d_det = van_rossum_distance(encode_latency(img), encode_latency(img))
+    d_poi = van_rossum_distance(encode_poisson(img), encode_poisson(img))
+    print(f"4. query identity         : SAME image encoded twice ->")
+    print(f"     deterministic latency : Van Rossum dist = {d_det:.3f}  (recognised as SAME query)")
+    print(f"     Poisson (stochastic)  : Van Rossum dist = {d_poi:.2f}  (looks like DIFFERENT data!)")
     print("=" * 60)
 
     # ---- self-checks --------------------------------------------------------
@@ -175,8 +201,11 @@ def main():
     d_other = van_rossum_distance(q0, proto_enc[(labels[0] + 1) % C])
     assert d_same < d_other, "Van Rossum distance does not separate classes"
     assert acc >= 0.85, f"query matching too weak: {acc:.2f}"
+    # determinism is required for query identity:
+    assert d_det == 0.0, "deterministic encoding must reproduce identical spikes"
+    assert d_poi > 0.0, "Poisson should produce different trains for the same input"
     print("self-check OK: deterministic, cache intact, precompute faster, "
-          "Van Rossum separates & matches")
+          "Van Rossum separates & matches, Poisson breaks query identity")
 
 
 if __name__ == "__main__":
