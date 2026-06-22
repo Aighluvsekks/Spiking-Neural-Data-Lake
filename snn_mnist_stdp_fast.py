@@ -24,18 +24,33 @@ from snn_mnist_stdp import (load_mnist, StdpNetwork, assign_labels, evaluate,
                             TAU_PRE, THETA_PLUS, THETA_DECAY)
 
 torch.manual_seed(0)
-FAST_THRESH = float(os.environ.get("FAST_THRESH", "0.7"))   # tuned: low (latency current is small)
-FAST_LR = float(os.environ.get("FAST_LR", "0.10"))          # tuned: high (sparse single-spike traces)
+# v0.17 defaults = the gap-closer config (76.0% at M=300/6k, vs 68.8% pure latency).
+# Set FAST_BURST=1 FAST_XTAR=0 FAST_THRESH=0.7 FAST_LR=0.10 to recover v0.16 pure latency.
+FAST_THRESH = float(os.environ.get("FAST_THRESH", "2.0"))   # higher: burst raises membrane current
+FAST_LR = float(os.environ.get("FAST_LR", "0.05"))
+FAST_XTAR = float(os.environ.get("FAST_XTAR", "0.05"))      # LTD depression (Diehl&Cook x_tar) -> sharper prototypes
+FAST_BURST = int(os.environ.get("FAST_BURST", "4"))         # spikes/pixel ∝ intensity: restores magnitude info + trace
 FLOOR = 0.10
 PRE_DECAY = float(torch.exp(torch.tensor(-1.0 / TAU_PRE)))
 
 
 def encode_latency(img):
-    """Deterministic: each pixel >= FLOOR fires once; brighter -> earlier.
-    Returns (times[active], idx[active]) — the precomputed spike tensor for one image."""
-    idx = (img >= FLOOR).nonzero(as_tuple=True)[0]
-    times = ((1.0 - img[idx]) * (T - 1)).round().long()
-    return times, idx
+    """Deterministic latency encoding. FAST_BURST=1 -> one spike/pixel (brighter =
+    earlier). FAST_BURST>1 -> graded burst: a bright pixel emits up to FAST_BURST
+    spikes (count ∝ intensity) starting at its latency, restoring magnitude info and
+    a stronger STDP trace while staying deterministic."""
+    idx_all = (img >= FLOOR).nonzero(as_tuple=True)[0]
+    base = ((1.0 - img[idx_all]) * (T - 1)).round().long()
+    if FAST_BURST <= 1:
+        return base, idx_all
+    nb = (img[idx_all] * FAST_BURST).round().long().clamp(min=1)
+    times, idx = [], []
+    for j in range(idx_all.numel()):
+        p, t0, k = int(idx_all[j]), int(base[j]), int(nb[j])
+        for s in range(k):
+            if t0 + s < T:
+                times.append(t0 + s); idx.append(p)
+    return torch.tensor(times, dtype=torch.long), torch.tensor(idx, dtype=torch.long)
 
 
 class FastStdpNetwork:
@@ -71,7 +86,9 @@ class FastStdpNetwork:
             if eff[w] > FAST_THRESH:
                 counts[w] += 1
                 if learn:
-                    self.W[w] += FAST_LR * x_pre
+                    # Diehl&Cook-style update: potentiate by causal pre-trace, depress
+                    # toward x_tar (unfired synapses -> -FAST_XTAR -> sharper prototypes)
+                    self.W[w] += FAST_LR * (x_pre - FAST_XTAR)
                     self.W[w].clamp_(0.0, WMAX)
                     self.theta[w] += THETA_PLUS
                 mem = torch.zeros(M)

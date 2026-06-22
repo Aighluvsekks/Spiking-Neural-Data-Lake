@@ -44,6 +44,7 @@ Regenerate with `python make_results_plot.py`.
 | v0.14 | `paradigm_b_genn.py`, `paradigm_b_matcher.py` | **Distinct-channel counting** — per-channel one-shot sub-detectors → counter (GeNN); CPU model + spam test | sub-detector rejects single-channel spam (0) where total-counter false-positives (2) |
 | v0.15 | `spike_preprocessing.py` | **Preprocessing pipeline** — deterministic latency encode, precompute+cache, Van Rossum filter for query matching | precompute **5.7× less encode work**; Van Rossum query→store match 100% |
 | v0.16 | `snn_mnist_stdp_fast.py` | **Latency vs rate STDP** — precomputed deterministic latency coding, head-to-head | **2.1× faster, 7.9× fewer SynOps**, but **−13.5 pts acc** (82.3→68.8%) |
+| v0.17 | `snn_mnist_stdp_fast.py` | **Close the gap** — graded burst encoding + LTD depression (x_tar) | gap **−13.5→−6.2 pts** (latency 68.8→**76.0%**); still 2.1× faster, 2.6× fewer SynOps |
 
 Reference file `snn_storage_core_snntorch.py` is the original snnTorch blueprint
 extracted from the source research brief (encoder only — does no storage).

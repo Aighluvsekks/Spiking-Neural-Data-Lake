@@ -3,6 +3,34 @@
 All notable changes to the Spiking Neural Data Lake. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); each version is a git tag.
 
+## [v0.17] — Close the latency↔rate gap (burst encoding + LTD)
+Halved the v0.16 accuracy gap while keeping the latency path's efficiency edge.
+### Diagnosis
+- v0.16's single-spike latency loses pixel-magnitude info and gives a weak STDP trace,
+  and the fast rule had no depression to sharpen prototypes.
+### Changed (`snn_mnist_stdp_fast.py`, both as env knobs, new defaults)
+- `FAST_BURST` (default 4): graded deterministic burst — a pixel emits up to N spikes
+  (count ∝ intensity) from its latency onward. Restores magnitude + a stronger trace.
+- `FAST_XTAR` (default 0.05): Diehl & Cook-style LTD — on a post-spike, synapses below
+  the target trace are depressed (unused inputs → −x_tar), sharpening prototypes.
+- Defaults retuned (`FAST_THRESH=2.0`, `FAST_LR=0.05`); set `FAST_BURST=1 FAST_XTAR=0`
+  to recover the v0.16 pure-latency behaviour.
+### Result (M=300, 6k train, 2k test)
+| | rate | v0.16 latency | **v0.17 latency+** |
+|---|---|---|---|
+| accuracy | 82.3% | 68.8% | **76.0%** |
+| gap vs rate | — | −13.5 | **−6.2** |
+| train time | 70.1 s | — | 33.2 s (2.1×) |
+| train SynOps | 1.95 B | 247 M | 750 M (2.6× fewer) |
+- Gap **more than halved** (−13.5 → −6.2 pts) at 2.1× faster / 2.6× fewer SynOps,
+  still deterministic. Sweeps showed burst=4 is the optimum (burst 5–6 and x_tar>0.05
+  regress).
+### Residual gap (honest)
+- The last ~6 pts appear inherent to single-pass latency vs rate's repeated sampling.
+  Fully closing it would need a pre/post **pair-based STDP kernel** (timing-windowed
+  LTP/LTD) rather than this trace-Hebbian rule — flagged as the next experiment. The
+  verified 82.3% rate path stays the default.
+
 ## [v0.16] — Precomputed latency STDP vs rate STDP (head-to-head)
 Wires the v0.15 preprocessing (deterministic latency + precompute) into the real STDP
 model and compares it against the verified rate-coded path, in one process.
