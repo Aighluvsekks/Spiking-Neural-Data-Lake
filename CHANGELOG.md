@@ -3,6 +3,24 @@
 All notable changes to the Spiking Neural Data Lake. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); each version is a git tag.
 
+## [v0.28] — Streaming ingest (Pub/Sub + Dataflow) + Cloud Composer DAG
+Wires the GCP scale-out's streaming + orchestration layers (artifacts only; run with your auth).
+### Added
+- `gcp/dataflow_ingest.py` — Apache Beam streaming pipeline: Pub/Sub subscription -> parse
+  JSON spike events -> 60 s fixed windows -> Parquet in GCS Bronze (the continuous version
+  of "land data into Bronze").
+- `gcp/publish_spikes.py` — test publisher (this repo's synthetic telemetry -> Pub/Sub).
+- `gcp/submit_dataflow.sh` — launch the pipeline on the Dataflow runner.
+- `gcp/composer_dag.py` — Airflow DAG `snn_medallion` for Cloud Composer: Dataproc Serverless
+  Medallion ETL -> BigQuery/BigLake Gold table refresh, daily.
+- Terraform: Pub/Sub topic `spike-telemetry` + subscription `spike-telemetry-sub` (+ outputs);
+  Composer left as an on-demand command (heavyweight ~$300+/mo).
+- `gcp/README.md`: steps 6 (streaming) and 7 (orchestration).
+### Verified
+- All Python (Beam/Airflow/pubsub) + shell scripts pass parse/syntax checks locally; cloud
+  execution is the user's to run.
+### Remaining (documented): Dataplex governance, Cloud DLP de-id, KMS CMEK, Analytics Hub.
+
 ## [v0.27] — GCP-native deployment scaffold
 Takes the local Medallion PoC toward a cloud lakehouse on GCP (GCS + BigLake/Iceberg +
 BigQuery + Dataproc Serverless + Vertex AI). Artifacts only — provisioning needs the

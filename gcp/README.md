@@ -55,11 +55,27 @@ PROJECT=$PROJECT bash gcp/submit_vertex.sh
 # at NORD_M=6400 / 60k on an L4 -> ~95% (the run that was impractical on CPU)
 ```
 
-## Scale-out (next, documented — not scripted here)
-- **Streaming ingest**: Pub/Sub topic -> Dataflow (Beam) -> Bronze.
-- **Orchestration**: Cloud Composer (Airflow) DAG ingest→Bronze→Silver→Gold.
-- **Governance**: Dataplex catalog/zones, IAM, Cloud KMS (CMEK), Cloud DLP de-id (the FPE step).
-- **Sharing**: Analytics Hub (Delta Sharing analog).
+## 6. Streaming ingest — Pub/Sub + Dataflow
+Terraform already created the topic `spike-telemetry` + subscription `spike-telemetry-sub`.
+```bash
+pip install 'apache-beam[gcp]' pyarrow google-cloud-pubsub
+PROJECT=$PROJECT BUCKET=$BUCKET bash gcp/submit_dataflow.sh   # streaming sub -> GCS Bronze
+PROJECT=$PROJECT python gcp/publish_spikes.py                 # feed test spike events
+```
+
+## 7. Orchestration — Cloud Composer (Airflow)
+```bash
+gcloud storage cp gcp/dataproc_medallion.py gs://$BUCKET/code/   # DAG references this
+gcloud composer environments create snn-orchestrator \
+  --location=$REGION --image-version=composer-2-airflow-2       # heavyweight (~$300+/mo)
+gcloud composer environments storage dags import \
+  --environment=snn-orchestrator --location=$REGION --source=gcp/composer_dag.py
+# DAG `snn_medallion` runs daily: Dataproc Medallion ETL -> BigQuery Gold refresh.
+```
+
+## Still documented (not scripted) — governance & sharing
+Dataplex catalog/zones, IAM, Cloud KMS (CMEK), Cloud DLP de-id (the FPE step),
+Analytics Hub sharing (Delta Sharing analog).
 
 ## Cost notes
 GCS / BigQuery / Artifact Registry are ~free at rest. Dataproc Serverless bills per batch.
