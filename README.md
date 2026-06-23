@@ -38,7 +38,7 @@ on each push.
 | Associative memory | memory footprint | factored vs dense | **874× smaller** (O(P·k), not N²) |
 | Supervised classifier | 4-shape, spiking | accuracy / compute | **100%**, 3.6× fewer ops than dense |
 | Unsupervised STDP MNIST (CPU) | no labels, no backprop | test accuracy | **82.3%** (300 neurons / 6k) |
-| Unsupervised STDP MNIST (GPU) | conductance Diehl & Cook, 6400 / 60k | test accuracy | **~95%** (RTX 5070, training) |
+| Conductance D&C (GPU, RTX 5070) | BindsNET, measured | test accuracy | **86.4% @ 400n** (= paper); 6400/default mistuned → 47.8% |
 | Spike-driven MoE | firing-rate routing | router parameters | **0 learned** (vs 512), 3× compute cut |
 | Temporal (TTFS) coding | latency inference + early exit | SynOps vs rate | **83.5× fewer** |
 | Telemetry hub (Paradigm A) | sparse `.spk` store | size / query I/O | **61× smaller** than raster, query reads 2% |
@@ -62,7 +62,7 @@ Trainable models (learn the representations):
 | Model | Mechanism | File | Headline |
 |-------|-----------|------|----------|
 | Unsupervised STDP | rate-coded, adaptive threshold, hard-WTA | `snn_mnist_stdp.py` | 82.3% CPU |
-| Conductance Diehl & Cook | exc/inh populations, BindsNET, GPU | `eth_mnist_bindsnet.py` | ~95% on GPU |
+| Conductance Diehl & Cook | exc/inh populations, BindsNET, GPU | `eth_mnist_bindsnet.py` | 86.4% @400n (verified); 95% target needs scale-tuning |
 | Latency STDP | deterministic, precomputed, burst+x_tar | `snn_mnist_stdp_fast.py` | 76%, 2.1× faster |
 | Spike-driven MoE + STDP | firing-rate routing over expert pops | `snn_moe_stdp_mnist.py` | 0-param router |
 | GeNN custom plasticity | v0.17 rule as a CUDA weight-update model | `snn_mnist_stdp_genn.py` | GPU port |
@@ -126,17 +126,24 @@ NORD_M=300 NORD_TRAIN=6000 NORD_TDECAY=0.99999 NORD_TPLUS=0.8 \
 
 ### GPU
 
-The conductance Diehl & Cook path reaches the literature ~95% at 6400 neurons + 60k
-images. On an RTX 5070 (Blackwell, sm_120) install the CUDA-12.8 build, then one switch:
+Verified on an RTX 5070 (Blackwell sm_120, `torch 2.11.0+cu128`). Install the CUDA build,
+then one switch:
 
 ```bash
 pip install --force-reinstall torch torchvision --index-url https://download.pytorch.org/whl/cu128
 pip install bindsnet
-python eth_mnist_bindsnet.py --gpu        # 6400 neurons / 60k → ~95%
+python eth_mnist_bindsnet.py --gpu        # default 400 neurons / 20k → 86.4% (verified)
 ```
 
-Verified end-to-end on an RTX 5070 (`torch 2.11.0+cu128`, capability 12.0). For the
-accuracy-vs-neurons scaling law (400 → 1600 → 6400) run `bash gpu_scaling_sweep.sh`
+**Measured GPU results (honest):**
+- **400 neurons / 20k → 86.4%** test accuracy — matches Diehl & Cook 2015 (~87%). Pipeline confirmed.
+- **6400 neurons / 60k, 1 epoch, default hyperparameters → only 47.8%.** Naive scale-up
+  *regresses*: BindsNET's ~100-neuron defaults under-inhibit 6400 competitors and 1 epoch
+  under-trains them. The literature's ~95% needs **scale-aware tuning** — more inhibition,
+  larger `theta_plus`, multiple epochs. Knobs are exposed: `NORD_INH`, `NORD_THETA_PLUS`,
+  `NORD_EXC`, `NORD_EPOCHS`. **95% is the paper's target, not yet reproduced here.**
+
+Chart the accuracy-vs-neurons scaling law (400 → 1600 → 6400) with `bash gpu_scaling_sweep.sh`
 (unbuffered, live progress).
 
 ---
@@ -149,8 +156,9 @@ accuracy-vs-neurons scaling law (400 → 1600 → 6400) run `bash gpu_scaling_sw
 - **vs rate coding** — deterministic temporal (TTFS) coding cuts inference ~83×; latency
   STDP trains 2.1× faster at 7.9× fewer SynOps (at a measured −6.2 pt accuracy tradeoff).
 - **vs the literature** — unsupervised STDP MNIST tops out at ~95% with 6400 neurons +
-  full 60k (Diehl & Cook 2015); this repo reaches 82.3% on CPU and runs the 6400/95%
-  config on GPU.
+  full 60k (Diehl & Cook 2015). This repo reaches **82.3% on CPU** (300n) and **86.4% on
+  GPU** (400n, = the paper at that size). The 6400/95% point is **not yet reproduced** —
+  naive scale-up measured 47.8%; it needs scale-aware tuning (see GPU section).
 - **vs [Project Nord](https://github.com/gtausa197-svg/-Project-Nord-Spiking-Neural-Network-Language-Model)**
   (a 1B-param pure-SNN LLM) — the same primitives (LIF, STDP, sparse WTA / firing-rate
   MoE, attractor memory), scaled down to small, verifiable demos.
@@ -183,8 +191,12 @@ tag + GitHub release).
 
 ## Limitations & open problems
 
-- **~95% needs a GPU.** Conductance D&C hits ~95% only at 6400 neurons + 60k images
-  (hundreds of CPU-hours); CPU ceiling is ~82–83%. A compute limit, not a method one.
+- **~95% not yet reproduced — it's a tuning problem, not just compute.** The conductance
+  D&C path verifies at **86.4% (GPU, 400 neurons** = the paper). But a naive 6400/60k/1-epoch
+  GPU run with default hyperparameters measured **only 47.8%**: BindsNET's small-network
+  defaults under-inhibit 6400 competitors and under-train in one epoch. Reaching the paper's
+  95% needs scale-aware inhibition (`NORD_INH`), larger `NORD_THETA_PLUS`, and multiple
+  `NORD_EPOCHS` — an open hyperparameter-search task, best run as parallel Vertex jobs.
 - **Latency↔rate gap (−6.2 pts).** Deterministic latency STDP (76%) trails rate (82.3%) —
   an information gap (one deterministic pass vs many stochastic samples). A pair-based
   STDP kernel did **not** help (v0.18, kept opt-in, default off).

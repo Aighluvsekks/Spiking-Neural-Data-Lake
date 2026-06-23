@@ -60,6 +60,11 @@ def _ei(k, d):
     return int(v) if v else d
 
 
+def _ef(k, d):
+    v = os.environ.get(k)
+    return float(v) if v else d
+
+
 def resolve_device():
     """--gpu / --device flag (or NORD_GPU env). Falls back to CPU with a clear
     RTX 5070 (Blackwell sm_120) install hint if CUDA torch isn't present."""
@@ -92,6 +97,13 @@ N_TEST = _ei("NORD_TEST", 10000)
 N_EPOCHS = _ei("NORD_EPOCHS", 1)
 TIME = _ei("NORD_TIME", 250)
 UPDATE = _ei("NORD_UPDATE", 250)   # re-assign labels every UPDATE train images
+# scale-sensitive knobs — defaults are BindsNET's ~100-neuron values. Larger networks
+# need MORE inhibition (more competitors) + bigger theta_plus + multiple epochs, or they
+# under-specialise (measured: 6400 neurons / 1 epoch with defaults -> only 47.8%).
+EXC = _ef("NORD_EXC", 22.5)
+INH = _ef("NORD_INH", 120.0)
+THETA_PLUS = _ef("NORD_THETA_PLUS", 0.05)
+NORM = _ef("NORD_NORM", 78.4)
 DT = 1.0
 INTENSITY = 128.0
 N_CLASSES = 10
@@ -119,8 +131,8 @@ def main():
     print()
 
     network = DiehlAndCook2015(
-        n_inpt=784, n_neurons=N, exc=22.5, inh=120.0, dt=DT,
-        norm=78.4, theta_plus=0.05, inpt_shape=(1, 28, 28),
+        n_inpt=784, n_neurons=N, exc=EXC, inh=INH, dt=DT,
+        norm=NORM, theta_plus=THETA_PLUS, inpt_shape=(1, 28, 28),
     )
     spikes = Monitor(network.layers["Ae"], state_vars=["s"], time=STEPS)
     network.add_monitor(spikes, name="Ae")

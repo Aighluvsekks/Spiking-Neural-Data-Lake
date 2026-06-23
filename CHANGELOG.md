@@ -3,6 +3,29 @@
 All notable changes to the Spiking Neural Data Lake. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); each version is a git tag.
 
+## [v0.29] — Real GPU training results (honest correction): 95% NOT yet reproduced
+Ran the actual GPU training on an RTX 5070 (cu128). The repo had claimed "6400 → ~95% (GPU)"
+as the target; the measured results correct that.
+### Measured (RTX 5070, torch 2.11.0+cu128)
+- **400 neurons / 20k → 86.4%** test accuracy — matches Diehl & Cook 2015 (~87%). Pipeline
+  is correct.
+- **6400 neurons / 60k, 1 epoch, default hyperparameters → 47.8%** — a *regression* vs
+  smaller nets. Naive scale-up under-inhibits 6400 competitors (inh tuned for ~100) and
+  under-trains in 1 epoch. The 400-neuron sanity isolates this as a scale-tuning problem,
+  not a pipeline bug.
+### Changed
+- `eth_mnist_bindsnet.py`: exposed the scale-sensitive knobs that were hardcoded —
+  `NORD_INH`, `NORD_THETA_PLUS`, `NORD_EXC`, `NORD_NORM` (plus existing `NORD_EPOCHS`).
+- `gcp/Dockerfile`: default changed from the mistuned 6400 config to the **verified 400/20k**
+  (~86%); 6400/95% documented as an override needing scale-aware tuning.
+- README corrected throughout: Results table, Architecture table, GPU section, competitive
+  context, limitations — all now state measured 86.4% (400n) and the unreproduced-95% gap,
+  not an implied 95%.
+### Honest status
+- 95% is the paper's target, **not yet achieved here**. It needs a hyperparameter search
+  (inhibition ∝ neuron count, larger theta_plus, multi-epoch) — best as parallel Vertex
+  jobs, not serial ~1.5-day local runs. No faked numbers.
+
 ## [v0.28] — Streaming ingest (Pub/Sub + Dataflow) + Cloud Composer DAG
 Wires the GCP scale-out's streaming + orchestration layers (artifacts only; run with your auth).
 ### Added
