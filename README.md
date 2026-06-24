@@ -72,6 +72,27 @@ Trainable models (learn the representations):
 
 ---
 
+## Applications
+
+The primitives above are the **core**; applications are thin orchestrators over them.
+Shipped flat in one repo (one `main`, linear tags) — apps move to `core/` + `apps/`
+*when* a second real app with its own users appears, not before.
+
+| Application | What it does | Files |
+|-------------|--------------|-------|
+| **Robot-arm signal loop** | live closed loop: signal → encode → data lake → match → JSON to an Interpreter that drives the arm. Hybrid matcher (learned + novelty gate) default; `--fast` = template; `--serial`/`--stdin` input. | `signal_loop.py`, `learned_matcher.py`, [`docs/arduino_contract.md`](docs/arduino_contract.md) |
+| **Event-camera ingestion** | real N-MNIST DVS events → Bronze → raster → classify (71%, no learning) | `nmnist_ingest.py` |
+| Research / demos | the 3 paradigms + trainable models above | `spike_telemetry_hub.py`, `paradigm_b_engine.py`, `spike_knowledge_graph*.py`, `snn_mnist_*.py`, … |
+
+```
+# robot-arm app — strong matcher, no hardware needed:
+cat windows.csv | python signal_loop.py --stdin
+# real Arduino (see docs/arduino_contract.md):
+python signal_loop.py --serial COM3 --window 8
+```
+
+---
+
 ## Directory structure
 
 ```
@@ -96,6 +117,9 @@ spiking-neural-data-lake/
   snn_mnist_stdp_genn.py           GeNN custom-plasticity GPU port
   snn_storage_core_snntorch.py     extracted snnTorch blueprint (reference)
   nmnist_ingest.py                 N-MNIST event-camera ingestion (Tonic opt; synth fallback)
+  signal_loop.py                   robot-arm app — encode -> lake -> match -> Interpreter
+  learned_matcher.py               stronger matching: template vs learned vs hybrid benchmark
+  docs/arduino_contract.md         Arduino <-> signal-loop wire contract + example sketches
   make_results_plot.py             regenerates assets/results.svg
   lakehouse/medallion.py           Medallion Bronze/Silver/Gold PoC (Parquet + polars)
   infra/                           Terraform — GCP-native lakehouse infrastructure

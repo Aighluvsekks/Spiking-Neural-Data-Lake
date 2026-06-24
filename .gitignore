@@ -7,6 +7,7 @@ __pycache__/
 # Virtual envs
 .venv/
 .venv-lake/
+.venv-nmnist/
 venv/
 env/
 

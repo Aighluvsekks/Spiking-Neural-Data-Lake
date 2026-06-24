@@ -3,6 +3,30 @@
 All notable changes to the Spiking Neural Data Lake. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); each version is a git tag.
 
+## [v0.32] — First real-world application: robot-arm signal loop (encode → lake → match → Interpreter)
+The repo's primitives wired into a live closed-loop application. Shipped flat (no app
+branches — branches are for in-progress work, not parallel apps; a `core/`+`apps/` monorepo
+is the move *when* a 2nd real app with its own users lands).
+### Added — robot-arm application
+- `signal_loop.py` — the real-time loop: signal window → `encode_latency` (deterministic
+  spikes) → `.spc` data lake (gzip) → match → JSON line on stdout for the Interpreter.
+  Pluggable matcher, `--enroll` to record references, `--stdin` to drive it with no hardware.
+- `learned_matcher.py` — **stronger matching**, benchmarked. Three matchers across a noise
+  sweep: template (Van Rossum nearest) vs learned (supervised spiking classifier, reuses
+  `snn_classifier.py`, no torch) vs **hybrid** (learned label + Van Rossum novelty gate).
+  Honest result: template accuracy collapses under noise (0% @ 50% bit-flip); learned holds
+  94–100% but can't reject novel (0%, overconfident OOD); hybrid keeps **both** — high-noise
+  acc 2%→96% (+95%) AND 100% novelty rejection.
+- `docs/arduino_contract.md` — pinned wire contract (115200 8N1, CSV/space floats, direct +
+  windowed modes) with two example Arduino sketches + enrollment steps.
+### Changed
+- Hybrid is now the **default** matcher (strongest under real noise); `--fast` selects the
+  zero-startup template baseline.
+- README gains an **Applications** section grouping the robot-arm app vs the research/demo files.
+### CI
+- `signal_loop.py` + `learned_matcher.py` added to the stdlib self-check matrix (both zero-dep;
+  the loop self-checks the wire contract parser with no hardware).
+
 ## [v0.31] — Real event-camera data: N-MNIST ingestion (DVS spikes, not pixels)
 Closes the one real gap in Gemini's improvement brief — the repo trained only on static
 MNIST. N-MNIST is MNIST recorded by a Dynamic Vision Sensor: native async `(x, y, t, p)`
