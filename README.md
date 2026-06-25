@@ -124,6 +124,9 @@ spiking-neural-data-lake/
   cortisol.py                      slow tonic stress-state modulating reflex + learning
   interpreter.py                   matched label -> robot command + outcome feedback
   closed_loop.py                   full stack end-to-end (signal -> command -> reward -> learn)
+  make_sensor_dataset.py           synthetic dataset modelling the builder's sensor.ino
+  sensor_demo.py                   full stack on the builder's 2-ch (distance+temp) domain
+  docs/sensor_fixed.ino            corrected Arduino sketch (idle fix, no banner)
   docs/arduino_contract.md         Arduino <-> signal-loop wire contract + example sketches
   make_results_plot.py             regenerates assets/results.svg
   lakehouse/medallion.py           Medallion Bronze/Silver/Gold PoC (Parquet + polars)

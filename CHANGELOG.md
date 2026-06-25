@@ -3,6 +3,26 @@
 All notable changes to the Spiking Neural Data Lake. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); each version is a git tag.
 
+## [v0.39] — First real hardware: builder's sensor (ultrasonic + IR) end-to-end
+The Arduino builder shipped `sensor.ino` (2 channels: ultrasonic distance + MLX90614 IR temp,
+115200, 10 Hz). Reviewed it, modeled its data, and ran the whole stack on its domain.
+### Review of `sensor.ino`
+- Works mechanically; our parser handles its `"d, t"` comma-space format and skips its banner.
+- **Bug**: idle printed `"___"` (when nothing within 3 m) → unparseable → every idle sample
+  dropped. Fix in `docs/sensor_fixed.ino`: emit `-1` instead, and drop the data-port banner.
+- Only the sketch arrived (1 of 4 deliverables) — no recorded dataset / gesture list / answers.
+### Added
+- `make_sensor_dataset.py`: synthetic labelled dataset in his exact format (distance, temp;
+  `-1` idle), 5 sensor-appropriate gestures (HAND_APPROACH/RETREAT, HOT/COLD_OBJECT, IDLE),
+  2000 samples, 100% window-separable. Writes `data/sensor_dataset.csv` (labelled) +
+  `data/sensor_stream.csv` (his serial format). HONEST: synthetic until his real captures.
+- `sensor_demo.py`: the full stack on his 2-channel domain — enroll 5 gestures → recognize
+  held-out windows (**92%**) → Interpreter maps gesture→command → reflex catches contact/hot
+  raw samples → dopamine raises a rewarded gesture. Self-contained (generates its own data).
+- `docs/sensor_fixed.ino`: the corrected sketch to send back to the builder.
+### CI
+- `make_sensor_dataset` + `sensor_demo` added → 23 stdlib self-checks, green.
+
 ## [v0.38] — Docs: unified local + cloud runbook
 ### Added
 - `docs/RUNNING.md`: one guide to run the data lake **locally** (zero-dep core, the robot-arm
