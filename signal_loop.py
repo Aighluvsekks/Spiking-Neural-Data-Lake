@@ -26,6 +26,7 @@ zero-startup template baseline.
   python signal_loop.py --serial COM3         # real Arduino (needs `pip install pyserial`)
   python signal_loop.py --serial COM3 --window 8   # buffer 8 raw lines -> 1 window
   cat windows.csv | python signal_loop.py --stdin  # exercise the wire contract, no hardware
+  python signal_loop.py --serial COM3 --reflex     # instinctive STOP/WITHDRAW on danger channels
   python signal_loop.py --enroll GRIPPER_CLOSE     # record a reference into signatures.json
 
 Continual learning: non-matching (novel) signals are recorded to data/unknowns.jsonl.
@@ -49,6 +50,7 @@ import random
 import zlib
 
 from spike_preprocessing import encode_latency, van_rossum_distance, N, T
+from reflex import Reflex, reflex_guard      # #2 instinctive fast-path (no cycle: reflex is leaf)
 
 SIG_PATH = os.path.join(".", "data", "signatures.json")
 LAKE_PATH = os.path.join(".", "data", "lake.spc")
@@ -128,8 +130,9 @@ def line_windows(raw_rows, window=1, n=N):
                 buf = []
 
 
-def serial_stream(port, baud, window=1):
-    """Read float windows from a serial port (real Arduino). Guarded import."""
+def serial_stream(port, baud, window=1, reflex=None, on_reflex=None):
+    """Read float windows from a serial port (real Arduino). Guarded import.
+    If a Reflex is given, it monitors the RAW sample stream ahead of windowing."""
     import serial  # pyserial — only needed on hardware
 
     def rows():
@@ -139,13 +142,15 @@ def serial_stream(port, baud, window=1):
             if p is not None:
                 yield p
 
-    yield from line_windows(rows(), window)
+    src = reflex_guard(rows(), reflex, on_reflex) if reflex else rows()
+    yield from line_windows(src, window)
 
 
-def stdin_stream(window=1):
+def stdin_stream(window=1, reflex=None, on_reflex=None):
     """Same wire contract, read from stdin — exercise the loop with no hardware."""
-    yield from line_windows((p for line in sys.stdin
-                             if (p := parse_line(line)) is not None), window)
+    raw = (p for line in sys.stdin if (p := parse_line(line)) is not None)
+    src = reflex_guard(raw, reflex, on_reflex) if reflex else raw
+    yield from line_windows(src, window)
 
 
 # ---- signature library (data lake of enrolled references) -------------------
@@ -348,18 +353,29 @@ def main():
     matcher_name = "template (Van Rossum)" if fast else "hybrid (learned + novelty gate)"
     window = int(args[args.index("--window") + 1]) if "--window" in args else 1
 
+    # #2 reflex fast-path: instinctive STOP/WITHDRAW on danger channels, ahead of match
+    reflex = Reflex() if "--reflex" in args else None
+
+    def emit_reflex(action, seq):                # preemptive instinct -> Interpreter
+        print(json.dumps({"reflex": action, "t_sample": seq, "preempt": True}))
+        sys.stdout.flush()
+
+    if reflex:
+        sys.stderr.write(f"reflex fast-path ON: {reflex.rules}\n")
+
     if "--serial" in args:
         port = args[args.index("--serial") + 1]
         baud = int(args[args.index("--baud") + 1]) if "--baud" in args else 115200
         sys.stderr.write(f"reading {port}@{baud} window={window}, {len(library)} "
                          f"signatures, matcher={matcher_name}\n")
-        run(serial_stream(port, baud, window), library, matcher,
+        run(serial_stream(port, baud, window, reflex, emit_reflex), library, matcher,
             on_unknown=record_unknown_line)                        # until interrupted
         return
 
     if "--stdin" in args:
         sys.stderr.write(f"reading stdin window={window}, matcher={matcher_name}\n")
-        run(stdin_stream(window), library, matcher, on_unknown=record_unknown_line)  # EOF
+        run(stdin_stream(window, reflex, emit_reflex), library, matcher,
+            on_unknown=record_unknown_line)                        # EOF
         return
 
     # default: simulated stream + report + self-check

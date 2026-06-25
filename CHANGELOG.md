@@ -3,6 +3,29 @@
 All notable changes to the Spiking Neural Data Lake. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); each version is a git tag.
 
+## [v0.34] — Instinctive action: reflex fast-path (#2) + reward-modulated valence (#3)
+Two kinds of instinct layered on top of recognition: hardwired reflex, and learned valence.
+### Added
+- `reflex.py` (#2): a fast LIF reflex arc. Priority "nociceptor" channels (collision force,
+  over/under current, over-temp) fire **STOP/WITHDRAW before** the encode → lake → match
+  pipeline runs. **Sign-aware** (raw signed samples, not the normalized window → catches
+  reverse-direction overloads); a severe breach fires in **one step**, marginal ones must
+  persist. Wired into the loop via `--reflex`: emits `{"reflex":"STOP","preempt":true}` on
+  the raw stream, ahead of the matcher.
+- `valence_stdp.py` (#3): reward-modulated STDP. A valence neuron learns good/bad from a
+  dopamine-like reward along an eligibility trace; `act()` → APPROACH / AVOID / neutral
+  (neutral defers to the matcher). Verified learning curve: untrained ~0 → **good +1.0
+  APPROACH, bad −1.0 AVOID**.
+### Changed
+- `signal_loop.py`: `--reflex` hook runs `reflex_guard` over the raw sample stream ahead of
+  windowing/matching; `serial_stream`/`stdin_stream` take an optional reflex + callback.
+### CI
+- `reflex` + `valence_stdp` added → **18 stdlib self-checks**, green.
+### Scope (honest)
+- `valence_stdp` is standalone; wiring it into the live loop needs a **reward/outcome
+  feedback channel** from the Interpreter/environment (not built yet). `reflex.DEFAULT_RULES`
+  (ch6 current, ch7 force) are **placeholders** pending the Arduino builder's real limits.
+
 ## [v0.33] — Continual learning: record non-matching signals, cluster, promote to new signatures
 The robot-arm loop no longer drops unknowns — it grows its own vocabulary.
 ### Added
