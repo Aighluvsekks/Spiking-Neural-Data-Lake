@@ -80,7 +80,7 @@ Shipped flat in one repo (one `main`, linear tags) — apps move to `core/` + `a
 
 | Application | What it does | Files |
 |-------------|--------------|-------|
-| **Robot-arm signal loop** | live closed loop: signal → encode → data lake → match → JSON to an Interpreter that drives the arm. Hybrid matcher (learned + novelty gate) default; `--fast` = template; `--serial`/`--stdin` input. **Continual learning**: novel signals are recorded and, once they recur, `--learn` promotes them to new signatures. **Instinct**: `--reflex` fires STOP/WITHDRAW on danger channels before recognition; `valence_stdp.py` learns good/bad (APPROACH/AVOID) from reward. | `signal_loop.py`, `learned_matcher.py`, `reflex.py`, `valence_stdp.py`, [`docs/arduino_contract.md`](docs/arduino_contract.md) |
+| **Robot-arm signal loop** | live closed loop: signal → encode → data lake → match → JSON to an Interpreter that drives the arm. Hybrid matcher (learned + novelty gate) default; `--fast` = template; `--serial`/`--stdin` input. **Continual learning**: novel signals are recorded and, once they recur, `--learn` promotes them to new signatures. **Instinct + neuromodulators**: `--reflex` fires STOP/WITHDRAW on danger before recognition (fast); `valence_stdp.py` learns good/bad via **RPE dopamine** (APPROACH/AVOID, with surprise + extinction); `cortisol.py` is a slow **stress state** that sharpens the reflex, amplifies aversive learning, and biases toward caution. | `signal_loop.py`, `learned_matcher.py`, `reflex.py`, `valence_stdp.py`, `cortisol.py`, [`docs/arduino_contract.md`](docs/arduino_contract.md) |
 | **Event-camera ingestion** | real N-MNIST DVS events → Bronze → raster → classify (71%, no learning) | `nmnist_ingest.py` |
 | Research / demos | the 3 paradigms + trainable models above | `spike_telemetry_hub.py`, `paradigm_b_engine.py`, `spike_knowledge_graph*.py`, `snn_mnist_*.py`, … |
 
@@ -120,7 +120,8 @@ spiking-neural-data-lake/
   signal_loop.py                   robot-arm app — encode -> lake -> match -> Interpreter
   learned_matcher.py               stronger matching: template vs learned vs hybrid benchmark
   reflex.py                        instinctive reflex fast-path (STOP/WITHDRAW on danger)
-  valence_stdp.py                  reward-modulated STDP: learned good/bad valence
+  valence_stdp.py                  RPE dopamine: learned good/bad valence (surprise + extinction)
+  cortisol.py                      slow tonic stress-state modulating reflex + learning
   docs/arduino_contract.md         Arduino <-> signal-loop wire contract + example sketches
   make_results_plot.py             regenerates assets/results.svg
   lakehouse/medallion.py           Medallion Bronze/Silver/Gold PoC (Parquet + polars)

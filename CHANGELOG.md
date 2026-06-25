@@ -3,6 +3,27 @@
 All notable changes to the Spiking Neural Data Lake. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); each version is a git tag.
 
+## [v0.35] — Neuromodulators: RPE dopamine + cortisol stress-state
+Upgraded the learned-instinct layer into the brain's actual fast/slow neuromodulator pair.
+### Changed
+- `valence_stdp.py`: learning is now driven by the reward **PREDICTION ERROR**
+  (`dopamine = reward − predicted_value`), not raw reward. Yields real dopamine behaviour:
+  acquisition dopamine **shrinks** as the value is learned (fires-on-surprise), **extinction**
+  produces a negative dip and the value decays to neutral, omitted reward dips below baseline.
+  `learn()` returns the dopamine signal; `act(bias=)` and `learn(lr_scale=)` are the cortisol hooks.
+### Added
+- `cortisol.py`: slow tonic stress-state. A leaky global `stress` scalar integrates aversive
+  events (reflex fires, negative dopamine) over a long time constant and decays = recovery.
+  Under stress it modulates the rest: **lowers the reflex threshold** (hypervigilance),
+  **raises the aversive learning rate** (bad memories stick), and adds a **caution bias** toward
+  AVOID. Ships a reflex+valence+cortisol coupling demo (stress 0→1.0→recovery).
+### CI
+- `cortisol` added → **19 stdlib self-checks**, green.
+### Honest scope
+- Abstractions, not biophysics: single global scalars, no D1/D2 receptors, no real HPA-axis
+  dynamics. The computational mechanisms (RPE / TD error, leaky stress integrator, stress-gated
+  plasticity) are the right ones; cortisol is not yet wired into the live loop.
+
 ## [v0.34] — Instinctive action: reflex fast-path (#2) + reward-modulated valence (#3)
 Two kinds of instinct layered on top of recognition: hardwired reflex, and learned valence.
 ### Added

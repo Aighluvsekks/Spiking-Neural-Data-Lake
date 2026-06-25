@@ -1,18 +1,25 @@
 """
-v0.34 — reward-modulated STDP: LEARNED valence  (#3).
+v0.35 — reward-PREDICTION-ERROR STDP: dopamine-driven learned valence  (#3, upgraded).
 
 The reflex (reflex.py) is hardwired. This LEARNS which signals are good or bad from
-outcomes — a dopamine-like reward — then acts instinctively on what it learned.
+outcomes, the way dopamine does: a single valence neuron's output is the predicted value
+of a signal (in [-1, +1]); learning is driven by the reward PREDICTION ERROR, not the raw
+reward —
 
-A single valence neuron sums weighted spike-counts of the encoded signal into a scalar
-valence in [-1, +1]. After each action an outcome reward r in [-1, +1] modulates the
-weights along an eligibility trace (R-STDP): inputs active when the reward arrived are
-strengthened (r > 0) or weakened (r < 0). Over trials, signals that precede bad outcomes
-drive valence negative -> AVOID; good ones positive -> APPROACH; unlearned/ambiguous
-stays near zero -> neutral (defer to the matcher).
+    dopamine = reward - predicted_value          (the RPE / TD error)
+    w += lr * dopamine * eligibility             (three-factor plasticity)
 
-This is the learned complement to the reflex: instinct you are born with vs instinct you
-acquire from consequences.
+This buys the real dopamine behaviours that raw-reward R-STDP could not:
+  - acquisition : dopamine is large on the first (unexpected) reward, then SHRINKS toward
+                  zero as the value is learned — exactly Schultz's dopamine-fires-on-surprise.
+  - extinction  : a once-rewarded signal that stops paying out gives a NEGATIVE dopamine
+                  dip (reward - high_prediction < 0) -> the value decays back to neutral.
+  - omission    : expected reward withheld -> dopamine dip below baseline.
+
+act() -> APPROACH / AVOID / neutral (neutral defers to the matcher); a `bias` arg lets
+cortisol (cortisol.py) push the decision toward AVOID under stress, and `lr_scale` lets it
+amplify aversive learning. Phasic dopamine here + tonic cortisol there = the fast/slow
+neuromodulator pair.
 
   python valence_stdp.py
 """
@@ -45,21 +52,33 @@ class ValenceLearner:
         s = sum(self.w[i] * c[i] for i in range(self.n))
         return math.tanh(s)
 
-    def act(self, window):
-        v = self.valence(window)
+    def act(self, window, bias=0.0):
+        """bias < 0 (e.g. cortisol caution under stress) shifts the decision toward AVOID."""
+        v = self.valence(window) - bias
         if v >= THETA:
             return "APPROACH", v
         if v <= -THETA:
             return "AVOID", v
         return None, v          # neutral: let the recognition matcher decide
 
-    def learn(self, window, reward):
-        """R-STDP: w[i] += lr * reward * eligibility[i] (active inputs at reward time)."""
+    def dopamine(self, window, reward):
+        """Reward PREDICTION ERROR: delta = reward - predicted value. This is the dopamine
+        signal — fires positive on better-than-expected, dips negative on omission/worse,
+        and goes to ~0 once the value is learned (no surprise -> no dopamine)."""
+        return reward - self.valence(window)
+
+    def learn(self, window, reward, lr_scale=1.0):
+        """Three-factor plasticity driven by the RPE (not raw reward): converges when the
+        prediction matches reward (delta -> 0) and EXTINGUISHES when a once-rewarded signal
+        stops paying out (delta < 0 -> weights decay). lr_scale lets cortisol amplify
+        aversive learning under stress. Returns the dopamine signal (delta)."""
+        delta = self.dopamine(window, reward)
         c = self._active(window)
         norm = sum(c) or 1
         for i in range(self.n):
             if c[i]:
-                self.w[i] += self.lr * reward * (c[i] / norm)
+                self.w[i] += self.lr * lr_scale * delta * (c[i] / norm)
+        return delta
 
 
 def _pattern(seed):
@@ -73,36 +92,50 @@ def _jitter(vec, rng, noise=0.08):
 
 def main():
     rng = random.Random(0)
-    good, bad = _pattern(1), _pattern(2)              # two distinct signals
+    good, bad = _pattern(1), _pattern(2)
     vl = ValenceLearner()
 
-    vg0, vb0 = vl.valence(good), vl.valence(bad)      # untrained -> neutral
+    print("=" * 64)
+    print("RPE DOPAMINE — prediction error drives learning (not raw reward)")
+    print("=" * 64)
+    print(f"untrained value : good {vl.valence(good):+.2f}  bad {vl.valence(bad):+.2f}  (neutral)\n")
 
-    print("=" * 60)
-    print("REWARD-MODULATED STDP — learned valence (good vs bad)")
-    print("=" * 60)
-    print(f"untrained valence : good {vg0:+.2f}  bad {vb0:+.2f}  (both ~neutral)")
-    print(f"{'trials':>6} | {'good valence':>12} | {'bad valence':>11}")
-    print("-" * 40)
-    for trial in range(1, 201):
-        vl.learn(_jitter(good, rng), +1.0)            # good signal -> reward
-        vl.learn(_jitter(bad, rng), -1.0)             # bad signal  -> punishment
-        if trial % 50 == 0:
-            print(f"{trial:>6} | {vl.valence(good):>+12.2f} | {vl.valence(bad):>+11.2f}")
+    # 1. ACQUISITION — dopamine is big on the first reward, shrinks as the value is learned
+    print("acquisition (good, reward=+1): dopamine should SHRINK as value is learned")
+    acq = []
+    for t in range(1, 41):
+        d = vl.learn(_jitter(good, rng), +1.0)
+        acq.append(d)
+        if t in (1, 2, 5, 10, 20, 40):
+            print(f"  trial {t:>2}: dopamine={d:+.3f}  value={vl.valence(good):+.3f}")
+    for _ in range(40):
+        vl.learn(_jitter(bad, rng), -1.0)             # also learn the bad signal
+    v_good = vl.valence(good)
+    act_good_acq = vl.act(good)[0]          # action AFTER acquisition (before extinction below)
+    print(f"learned: good -> {act_good_acq} ({v_good:+.2f})   "
+          f"bad -> {vl.act(bad)[0]} ({vl.valence(bad):+.2f})\n")
 
-    vg, vb = vl.valence(good), vl.valence(bad)
-    ag, ab = vl.act(good)[0], vl.act(bad)[0]
-    print("-" * 40)
-    print(f"learned actions   : good -> {ag}   bad -> {ab}")
-    print("=" * 60)
+    # 2. EXTINCTION — good now pays nothing: dopamine dips, value decays toward neutral
+    print("extinction (good, reward=0 now): dopamine dips, value decays")
+    dips = []
+    for t in range(1, 41):
+        d = vl.learn(_jitter(good, rng), 0.0)
+        dips.append(d)
+        if t in (1, 10, 40):
+            print(f"  trial {t:>2}: dopamine={d:+.3f}  value={vl.valence(good):+.3f}")
+    v_ext = vl.valence(good)
+    print(f"good value {v_good:+.2f} -> {v_ext:+.2f}; action now {vl.act(good)[0]}")
+    print("=" * 64)
 
     # ---- self-checks --------------------------------------------------------
-    assert abs(vg0) < THETA and abs(vb0) < THETA, "untrained valence should be neutral"
-    assert vg > THETA and vb < -THETA, f"valence did not separate good/bad: {vg:+.2f}/{vb:+.2f}"
-    assert ag == "APPROACH" and ab == "AVOID", f"wrong learned actions: {ag}/{ab}"
-    # the good signal is now clearly more positive than the bad one (learning happened)
-    assert vg - vb > 1.0, "good vs bad valence gap too small"
-    print("self-check OK: started neutral, learned good->APPROACH / bad->AVOID from reward")
+    assert acq[0] > 0.5, "first reward should be a big positive surprise (dopamine)"
+    assert acq[-1] < acq[0] * 0.6, "dopamine must shrink as the value is learned (RPE)"
+    assert v_good > THETA and act_good_acq == "APPROACH", "good not learned as APPROACH"
+    assert vl.act(bad)[0] == "AVOID", "bad not learned as AVOID"
+    assert all(d <= 0 for d in dips[:3]), "omitted reward must produce a dopamine dip (<=0)"
+    assert v_ext < v_good and v_ext < THETA, "extinction should decay the value below APPROACH"
+    assert vl.act(good)[0] is None, "good should be neutral after extinction"
+    print("self-check OK: dopamine shrinks with learning, dips on omission, value extinguishes")
 
 
 if __name__ == "__main__":
