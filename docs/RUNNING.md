@@ -32,28 +32,14 @@ Run the whole suite (what CI runs):
 for f in spiking_storage_prototype test_prototype snn_classifier snn_moe_classifier \
          temporal_coding_storage spike_telemetry_hub paradigm_b_matcher paradigm_b_engine \
          spike_preprocessing spike_knowledge_graph spike_knowledge_graph_rotate \
-         spike_kg_relations nmnist_ingest signal_loop learned_matcher reflex valence_stdp \
-         cortisol interpreter closed_loop; do python "$f.py" || break; done
+         spike_kg_relations nmnist_ingest; do python "$f.py" || break; done
 ```
-(Windows PowerShell: `foreach ($f in 'signal_loop','closed_loop'){ python "$f.py" }`.)
 
-### 2. The robot-arm closed loop (the application)
-Encode → data lake → match → command → reward → learn, all zero-dep:
-```bash
-python closed_loop.py        # full stack end-to-end: gesture -> command, collision -> STOP
-python signal_loop.py        # the loop alone (hybrid matcher) + self-check
-python interpreter.py        # label -> robot command translation + self-check
-```
-Drive the loop with no hardware (pipe windows in; outcomes back via OUTCOME lines):
-```bash
-# one window per line of 64 comma-separated floats; OUTCOME <r> lines feed reward back
-cat windows.csv | python signal_loop.py --stdin --feedback --reflex
-```
-Teach it a new gesture (continual learning):
-```bash
-python signal_loop.py --enroll GRIPPER_CLOSE   # record a reference
-python signal_loop.py --learn                  # cluster recorded unknowns -> new signatures
-```
+### 2. Robot-arm application → `robot-arm` branch
+The real-time closed loop (signal → encode → lake → match → command → reward, with reflex +
+RPE dopamine + cortisol + the Interpreter) lives on the
+[`robot-arm` branch](../../tree/robot-arm), not on `main`. Check out that branch and see its
+README to run it.
 
 ### 3. The Medallion lakehouse PoC (needs polars)
 Bronze → Silver → Gold over Parquet, the data path that scales to the cloud:

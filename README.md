@@ -72,24 +72,16 @@ Trainable models (learn the representations):
 
 ---
 
-## Applications
+## Scope: core vs application
 
-The primitives above are the **core**; applications are thin orchestrators over them.
-Shipped flat in one repo (one `main`, linear tags) — apps move to `core/` + `apps/`
-*when* a second real app with its own users appears, not before.
+**`main` (this branch) — the spiking data lake + SNN core:** storage prototypes, the three
+paradigms (telemetry hub, in-storage query, relational embeddings), the trainable STDP / D&C
+models, N-MNIST event-camera ingestion, the Medallion lakehouse, and the GCP scale-out.
 
-| Application | What it does | Files |
-|-------------|--------------|-------|
-| **Robot-arm signal loop** | live closed loop: signal → encode → data lake → match → JSON to an Interpreter that drives the arm. Hybrid matcher (learned + novelty gate) default; `--fast` = template; `--serial`/`--stdin` input. **Continual learning**: novel signals are recorded and, once they recur, `--learn` promotes them to new signatures. **Instinct + neuromodulators**: `--reflex` fires STOP/WITHDRAW on danger before recognition (fast); `valence_stdp.py` learns good/bad via **RPE dopamine** (APPROACH/AVOID, with surprise + extinction); `cortisol.py` is a slow **stress state** that sharpens the reflex, amplifies aversive learning, and biases toward caution. **Closed loop**: the **Interpreter** (`interpreter.py`) maps matched labels → robot commands and sends `OUTCOME <reward>` back; `closed_loop.py` runs the whole stack end-to-end (signal → reflex → match → valence → command → reward → dopamine + cortisol). | `signal_loop.py`, `learned_matcher.py`, `reflex.py`, `valence_stdp.py`, `cortisol.py`, `interpreter.py`, `closed_loop.py`, [`docs/arduino_contract.md`](docs/arduino_contract.md) |
-| **Event-camera ingestion** | real N-MNIST DVS events → Bronze → raster → classify (71%, no learning) | `nmnist_ingest.py` |
-| Research / demos | the 3 paradigms + trainable models above | `spike_telemetry_hub.py`, `paradigm_b_engine.py`, `spike_knowledge_graph*.py`, `snn_mnist_*.py`, … |
-
-```
-# robot-arm app — strong matcher, no hardware needed:
-cat windows.csv | python signal_loop.py --stdin
-# real Arduino (see docs/arduino_contract.md):
-python signal_loop.py --serial COM3 --window 8
-```
+**Robot-arm application → [`robot-arm` branch](../../tree/robot-arm):** the real-time closed
+loop built on these primitives — signal encoding, in-lake matching, continual learning,
+instinct (reflex), neuromodulators (RPE dopamine + cortisol), the Interpreter (matched label →
+robot command), and the Arduino wire contract. Kept off `main` so the core stays focused.
 
 ---
 
@@ -117,18 +109,8 @@ spiking-neural-data-lake/
   snn_mnist_stdp_genn.py           GeNN custom-plasticity GPU port
   snn_storage_core_snntorch.py     extracted snnTorch blueprint (reference)
   nmnist_ingest.py                 N-MNIST event-camera ingestion (Tonic opt; synth fallback)
-  signal_loop.py                   robot-arm app — encode -> lake -> match -> Interpreter
-  learned_matcher.py               stronger matching: template vs learned vs hybrid benchmark
-  reflex.py                        instinctive reflex fast-path (STOP/WITHDRAW on danger)
-  valence_stdp.py                  RPE dopamine: learned good/bad valence (surprise + extinction)
-  cortisol.py                      slow tonic stress-state modulating reflex + learning
-  interpreter.py                   matched label -> robot command + outcome feedback
-  closed_loop.py                   full stack end-to-end (signal -> command -> reward -> learn)
-  make_sensor_dataset.py           synthetic dataset modelling the builder's sensor.ino
-  sensor_demo.py                   full stack on the builder's 2-ch (distance+temp) domain
-  docs/sensor_fixed.ino            corrected Arduino sketch (idle fix, no banner)
-  docs/arduino_contract.md         Arduino <-> signal-loop wire contract + example sketches
   make_results_plot.py             regenerates assets/results.svg
+  docs/RUNNING.md                  local + cloud runbook
   lakehouse/medallion.py           Medallion Bronze/Silver/Gold PoC (Parquet + polars)
   infra/                           Terraform — GCP-native lakehouse infrastructure
   gcp/                             Dataproc/Vertex scaffold + deploy guide (gcp/README.md)

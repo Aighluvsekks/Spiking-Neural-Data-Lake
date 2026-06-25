@@ -22,9 +22,7 @@ jobs:
                    snn_moe_classifier temporal_coding_storage spike_telemetry_hub \
                    paradigm_b_matcher paradigm_b_engine spike_preprocessing \
                    spike_knowledge_graph spike_knowledge_graph_rotate spike_kg_relations \
-                   nmnist_ingest signal_loop learned_matcher reflex valence_stdp \
-                   cortisol interpreter closed_loop make_sensor_dataset sensor_demo \
-                   make_results_plot; do
+                   nmnist_ingest make_results_plot; do
             echo "::group::$f"
             python "$f.py"
             echo "::endgroup::"

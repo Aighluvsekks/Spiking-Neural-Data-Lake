@@ -3,6 +3,22 @@
 All notable changes to the Spiking Neural Data Lake. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); each version is a git tag.
 
+## [v0.40] — Split: core on `main`, robot-arm application on the `robot-arm` branch
+`main` is now the spiking **data lake + SNN core** only. The robot-arm **application** moved to
+the [`robot-arm` branch](../../tree/robot-arm) (where collaborator hardware work already lives).
+### Removed from `main` (live on the `robot-arm` branch)
+`signal_loop`, `learned_matcher`, `reflex`, `valence_stdp`, `cortisol`, `interpreter`,
+`closed_loop`, `make_sensor_dataset`, `sensor_demo`, `docs/arduino_contract.md`,
+`docs/sensor_fixed.ino`.
+### `main` keeps (the core)
+storage prototypes · the 3 paradigms (telemetry hub / in-storage query / relational
+embeddings) · trainable STDP + Diehl & Cook models · N-MNIST event-camera ingestion · the
+Medallion lakehouse · the GCP scale-out.
+### Changed
+CI trimmed to the **14 core stdlib self-checks**; README and `docs/RUNNING.md` point the
+application to the `robot-arm` branch. (History below for v0.32–0.39 stays — those features
+live on, on the branch.)
+
 ## [v0.39] — First real hardware: builder's sensor (ultrasonic + IR) end-to-end
 The Arduino builder shipped `sensor.ino` (2 channels: ultrasonic distance + MLX90614 IR temp,
 115200, 10 Hz). Reviewed it, modeled its data, and ran the whole stack on its domain.
