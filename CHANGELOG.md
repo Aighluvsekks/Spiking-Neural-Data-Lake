@@ -3,6 +3,19 @@
 All notable changes to the Spiking Neural Data Lake. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); each version is a git tag.
 
+## [v0.41] — Streaming hub (live append + record-while-query) + capacity cliff mapped
+Core data-lake additions, shared with `main`. (`main` carries the v0.40 core/app split;
+this branch keeps the full application.)
+### Added
+- `streaming_hub.py`: streaming counterpart to the batch telemetry hub — durable append-only
+  `.spkl` log (8 B/event) + live in-memory index → record **while** querying; `replay()` on
+  restart (crash recovery).
+### Changed
+- `test_prototype.py` `capacity_sweep` extended past 3×N → recall cliff mapped (holds to ~80
+  patterns 99.8%, knee ~128–192 = **0.5–0.8× N**, 35.6% at 768).
+### CI
+- `streaming_hub` added to the self-check matrix.
+
 ## [v0.39] — First real hardware: builder's sensor (ultrasonic + IR) end-to-end
 The Arduino builder shipped `sensor.ino` (2 channels: ultrasonic distance + MLX90614 IR temp,
 115200, 10 Hz). Reviewed it, modeled its data, and ran the whole stack on its domain.

@@ -28,14 +28,23 @@ def mean_recall(num_patterns, drop, add, trials=TRIALS):
 
 def capacity_sweep():
     """Fix moderate noise (6 of 20 bits), grow the codebook until recall falls.
-    Rule of thumb for Hebbian nets: capacity ~ a few % of N."""
+    The FACTORED memory stores the patterns themselves (O(P*k)), so it holds far more
+    than the classic Hebbian 'few % of N' — recall stays high until inter-pattern
+    crosstalk in the reconstructed field dominates. Swept well past N to find that knee."""
     print(f"CAPACITY SWEEP  (N={N}, K={K}, cue: drop 6 / add 6)")
     print(f"{'patterns':>9} | {'mean recall':>11} | bar")
     print("-" * 48)
-    for num in (5, 10, 15, 20, 30, 40, 50, 60, 80):
+    knee = None
+    for num in (20, 40, 80, 128, 192, 256, 384, 512, 768):
         r = mean_recall(num, drop=6, add=6)
         bar = "#" * int(r * 20)
         print(f"{num:>9} | {r:>10.1%} | {bar}")
+        if knee is None and r < 0.90:               # first load that drops below 90%
+            knee = num
+    if knee:
+        print(f"knee (recall first < 90%): ~{knee} patterns = {knee / N:.1f}x N")
+    else:
+        print("knee: no cliff up to 3x N (768 patterns)")
     print()
 
 
