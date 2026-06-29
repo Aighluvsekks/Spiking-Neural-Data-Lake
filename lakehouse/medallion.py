@@ -26,6 +26,7 @@ import os
 import gzip
 import polars as pl
 from spike_telemetry_hub import synth   # raw spike-telemetry source (this repo)
+import data_quality                     # v0.43 gates: block promotion to Gold on bad data
 
 LAKE = os.path.join("lakehouse", "data")   # Parquet output (gitignored)
 
@@ -96,6 +97,13 @@ def main():
     b_df, b_p = bronze(hub)
     s_df, s_p = silver(b_df, WIN)
     g_df, g_p, synchrony, icr = gold(b_df, s_df, hub, WIN)
+    # ---- data-quality gate: blocks promotion to Gold on bad / mutated / non-encodable data ----
+    rows = [(int(t), int(c)) for t, c in b_df.iter_rows()]
+    dq = data_quality.gate(rows, hub.n, hub.dur,
+                           gold={"icr": icr, "rates": g_df["rate"].to_list(),
+                                 "synchrony": synchrony},
+                           bronze_prior_hash=data_quality.bronze_hash(rows))
+    assert dq["gold_checked"], "data-quality gate did not run before Gold"
     handoff = latency_handoff(g_df)
 
     def kb(p):

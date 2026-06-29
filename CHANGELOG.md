@@ -3,6 +3,23 @@
 All notable changes to the Spiking Neural Data Lake. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); each version is a git tag.
 
+## [v0.43] — Data-quality gates: block promotion to Gold on bad data
+### Added
+- `data_quality.py` (stdlib): `gate()` enforces **schema** (t/channel in range, int),
+  **encodability** (lossless serialize round-trip), Bronze **immutability** (content hash
+  stable), and **Gold sanity** (ICR ∈ (0,1], rates finite ≥ 0, synchrony finite). Raises
+  `DataQualityError` → blocks promotion. Self-check: valid passes, **9/9 defect classes caught**.
+### Changed
+- `lakehouse/medallion.py`: runs `gate()` after Silver/Gold compute, **before Gold is
+  finalized** — verified end-to-end in `.venv-lake` (ICR 0.197, gate passed).
+### CI
+- `data_quality` added → **25 self-checks**, green.
+### Notes
+- The gate is stdlib (Gemini suggested Beam DirectRunner — kept zero-dep); `dataflow_ingest.py`
+  can call the same `gate()` in its Beam DoFn for the streaming path.
+- Adopted proposal #4 of 5; #1 spiking-transformer (premature, 64-entity KG), #3 memristor
+  (hardware → sim-only), #5 fully-temporal (measured −6 pt regression) deferred.
+
 ## [v0.42] — Unified: core + robot-arm application merged back onto `main`
 Reverses the v0.40 split — `main` now holds the **whole project** again: the data-lake/SNN
 core *and* the robot-arm application (signal loop, hybrid matcher, reflex, RPE dopamine,
