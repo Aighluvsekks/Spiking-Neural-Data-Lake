@@ -1,0 +1,114 @@
+# Arduino Signal Source — Brief & Requirements
+
+> For the embedded/Arduino builder. You do **not** need to know the rest of the system.
+> This page is self-contained: what we're building, what your part is, and exactly what
+> to deliver.
+
+## 1. What we're building (plain version)
+A robot arm that **reacts to its own movement signals**. Sensors on the arm produce
+electrical signals; software turns those signals into a compact "brain-style" code,
+looks up which known gesture they match, and tells a controller what command to run
+(rotate joint A, close gripper, etc.). It is a closed loop: arm moves → signal →
+recognize → command → arm moves.
+
+```
+[ROBOT ARM] --signal--> [YOUR ARDUINO] --numbers over USB--> [our software] --command--> [controller] --> arm
+   sensors                read + stream                       recognize gesture
+   ^------------------------------------ loop -----------------------------------------v
+```
+
+**Your box** is the second one: read the arm's sensors and stream the numbers out over
+USB. That's it. You do not do any recognition, AI, or control — just clean data out.
+
+## 2. Your job in one sentence
+Wire sensors to an Arduino, and continuously send their readings to the computer over
+USB as plain text numbers, one reading-set per line.
+
+## 3. What "send the numbers" means (concrete)
+Open the USB serial port at **115200 baud**, and print one line per sample. Each line is
+just comma-separated numbers — one number per sensor channel. Example with 8 sensors:
+
+```
+512,488,77,940,233,512,610,12
+514,486,79,938,231,515,612,13    <- one line every sample tick
+513,490,76,941,230,514,611,13
+```
+Raw analog readings (0–1023) are fine — we scale them on our side. Newline (`\n`) ends
+each line. **Nothing else on this port**: no "Hello", no menus, no debug prints mixed in.
+
+Minimal sketch shape (replace with your real sensors):
+```cpp
+const int C = 8;                 // number of sensor channels
+void setup() { Serial.begin(115200); }
+void loop() {
+  for (int c = 0; c < C; c++) {
+    Serial.print(analogRead(A0 + c));
+    if (c < C - 1) Serial.print(',');
+  }
+  Serial.println();              // newline = end of one sample
+  delay(5);                      // ~200 samples/sec; adjust to your sensors
+}
+```
+(The full protocol, including an alternative "one full window per line" mode, is in
+[`arduino_contract.md`](arduino_contract.md) — read it only if you want the details.)
+
+## 4. Questions we need you to answer
+Short written answers. Examples show the *kind* of answer, not the value.
+
+| # | Question | Example answer |
+|---|----------|----------------|
+| 1 | How many sensor channels? | "8" |
+| 2 | What is each channel + its unit? | "ch0–5 = joint angles (deg via potentiometer), ch6 = gripper motor current (mA), ch7 = base vibration (IMU)" |
+| 3 | Sample rate (readings per second per channel)? | "200 Hz" |
+| 4 | Value range of each channel? | "raw 0–1023 ADC" or "0.0–5.0 V" |
+| 5 | How long does one gesture last, start to finish? | "~400 ms" |
+| 6 | How do the sensors read when the arm is **still/idle**? | "ch0–5 steady ±2, ch6 near 0, ch7 small jitter" |
+
+## 5. The gesture list
+Give us the exact list of arm motions to recognize, with a plain name each. These names
+are what the system will act on. Example:
+```
+JOINT_A_ROTATE, JOINT_B_ROTATE, GRIPPER_CLOSE, GRIPPER_OPEN, HOME
+```
+For each gesture: be able to **perform it on demand, repeatedly**, so we can record a
+reference for it.
+
+## 6. What to hand over (deliverables)
+1. **The Arduino sketch** (`.ino` source).
+2. **Wiring notes** — board model, which pin connects to which sensor, power setup.
+3. **A recorded data file (most important).** Run the arm through each gesture several
+   times and save the streamed numbers to a CSV, tagged with the gesture name. This lets
+   us build and test everything **without your hardware in hand**. Format — add a label
+   column (or one file per gesture):
+   ```
+   label,ch0,ch1,ch2,ch3,ch4,ch5,ch6,ch7
+   GRIPPER_CLOSE,512,488,77,940,233,512,610,12
+   GRIPPER_CLOSE,514,486,79,938,231,515,611,13
+   ...
+   HOME,500,500,500,500,500,500,5,1
+   IDLE,499,501,500,500,499,500,4,0
+   ```
+   Aim for a few hundred lines per gesture, plus some **idle** capture (arm doing nothing).
+4. **Written answers to §4.**
+
+## 7. How we'll check it works (acceptance)
+- Your recorded CSV opens cleanly: every line same number of columns, only numbers (plus
+  the label), no stray text or banner lines.
+- When we feed it to our software, each gesture is recognized correctly and idle is
+  ignored (no false command).
+- On the real device, opening your USB serial port shows a steady stream of number lines
+  at 115200 baud and nothing else.
+
+(If you want to self-check before sending: any serial terminal at 115200 baud should show
+clean comma-separated number lines scrolling by. That alone covers 90% of it.)
+
+## 8. Out of scope for you
+No AI, no recognition, no robot control, no networking. Just: sensors → Arduino → clean
+numbers over USB, plus one recorded sample file and the gesture list.
+
+## Glossary
+- **Channel** — one sensor's stream of readings (e.g. one joint's angle).
+- **Sample** — one reading from every channel at the same instant = one output line.
+- **Gesture** — one named arm motion we want to recognize.
+- **Baud (115200)** — the USB serial speed; set `Serial.begin(115200)`.
+- **Idle** — arm at rest; we use it to teach the system "no command".

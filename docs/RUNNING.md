@@ -30,29 +30,22 @@ python spike_knowledge_graph.py       # Paradigm C: relational spike embeddings
 Run the whole suite (what CI runs):
 ```bash
 for f in spiking_storage_prototype test_prototype snn_classifier snn_moe_classifier \
-         temporal_coding_storage spike_telemetry_hub paradigm_b_matcher paradigm_b_engine \
-         spike_preprocessing spike_knowledge_graph spike_knowledge_graph_rotate \
-         spike_kg_relations nmnist_ingest signal_loop learned_matcher reflex valence_stdp \
-         cortisol interpreter closed_loop; do python "$f.py" || break; done
+         temporal_coding_storage spike_telemetry_hub streaming_hub paradigm_b_matcher \
+         paradigm_b_engine spike_preprocessing spike_knowledge_graph \
+         spike_knowledge_graph_rotate spike_kg_relations nmnist_ingest signal_loop \
+         learned_matcher reflex valence_stdp cortisol interpreter closed_loop \
+         make_sensor_dataset sensor_demo; do python "$f.py" || break; done
 ```
-(Windows PowerShell: `foreach ($f in 'signal_loop','closed_loop'){ python "$f.py" }`.)
 
 ### 2. The robot-arm closed loop (the application)
-Encode → data lake → match → command → reward → learn, all zero-dep:
+Encode → data lake → match → command → reward → learn (with reflex + RPE dopamine + cortisol +
+the Interpreter), all zero-dep, on `main`:
 ```bash
 python closed_loop.py        # full stack end-to-end: gesture -> command, collision -> STOP
 python signal_loop.py        # the loop alone (hybrid matcher) + self-check
-python interpreter.py        # label -> robot command translation + self-check
-```
-Drive the loop with no hardware (pipe windows in; outcomes back via OUTCOME lines):
-```bash
-# one window per line of 64 comma-separated floats; OUTCOME <r> lines feed reward back
+python interpreter.py        # matched label -> robot command + self-check
+# drive it with no hardware (outcomes back via OUTCOME lines):
 cat windows.csv | python signal_loop.py --stdin --feedback --reflex
-```
-Teach it a new gesture (continual learning):
-```bash
-python signal_loop.py --enroll GRIPPER_CLOSE   # record a reference
-python signal_loop.py --learn                  # cluster recorded unknowns -> new signatures
 ```
 
 ### 3. The Medallion lakehouse PoC (needs polars)

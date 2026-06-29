@@ -3,6 +3,45 @@
 All notable changes to the Spiking Neural Data Lake. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); each version is a git tag.
 
+## [v0.42] — Unified: core + robot-arm application merged back onto `main`
+Reverses the v0.40 split — `main` now holds the **whole project** again: the data-lake/SNN
+core *and* the robot-arm application (signal loop, hybrid matcher, reflex, RPE dopamine,
+cortisol, the Interpreter, the closed loop) plus the builder sensor work (incl. MakiKuri00's
+`robot arm/sensor/sensor.ino`). The `robot-arm` branch stays on the remote for the
+collaborator; everything it held now lives on `main`.
+### Changed
+- CI restored to the **full self-check matrix** (core + app).
+- README + `docs/RUNNING.md`: the application runs from `main` (no branch checkout).
+
+## [v0.41] — Streaming hub (live append + record-while-query) + capacity cliff mapped
+### Added
+- `streaming_hub.py`: the streaming counterpart to the batch telemetry hub. Durable append-only
+  `.spkl` log (8 B/event, flushed per event) + a live in-memory per-channel index → record
+  **while** querying; restart `replay()`s the log to rebuild the index (crash recovery). The
+  single-machine version of the Pub/Sub → Dataflow → Bronze path.
+### Changed
+- `test_prototype.py` `capacity_sweep` extended past 3×N to find the recall cliff: holds to ~80
+  patterns (99.8%), knee ~128–192 (**0.5–0.8× N**), degrades to 35.6% at 768. (The factored
+  memory holds far more than the classic Hebbian "few % of N".)
+### CI
+- `streaming_hub` added → **15 core stdlib self-checks**, green.
+
+## [v0.40] — Split: core on `main`, robot-arm application on the `robot-arm` branch
+`main` is now the spiking **data lake + SNN core** only. The robot-arm **application** moved to
+the [`robot-arm` branch](../../tree/robot-arm) (where collaborator hardware work already lives).
+### Removed from `main` (live on the `robot-arm` branch)
+`signal_loop`, `learned_matcher`, `reflex`, `valence_stdp`, `cortisol`, `interpreter`,
+`closed_loop`, `make_sensor_dataset`, `sensor_demo`, `docs/arduino_contract.md`,
+`docs/sensor_fixed.ino`.
+### `main` keeps (the core)
+storage prototypes · the 3 paradigms (telemetry hub / in-storage query / relational
+embeddings) · trainable STDP + Diehl & Cook models · N-MNIST event-camera ingestion · the
+Medallion lakehouse · the GCP scale-out.
+### Changed
+CI trimmed to the **14 core stdlib self-checks**; README and `docs/RUNNING.md` point the
+application to the `robot-arm` branch. (History below for v0.32–0.39 stays — those features
+live on, on the branch.)
+
 ## [v0.39] — First real hardware: builder's sensor (ultrasonic + IR) end-to-end
 The Arduino builder shipped `sensor.ino` (2 channels: ultrasonic distance + MLX90614 IR temp,
 115200, 10 Hz). Reviewed it, modeled its data, and ran the whole stack on its domain.
