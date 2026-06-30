@@ -3,6 +3,23 @@
 All notable changes to the Spiking Neural Data Lake. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); each version is a git tag.
 
+## [v0.58] — High-dim spiking MBRL: Dreamer-lite on a 6-DOF arm
+### Added
+- `snn_dreamer_6dof.py`: a model-based-RL agent with all three frontier pieces — a **6-joint
+  redundant planar arm** (6 actuators → 2D tip; the redundancy is the high-dim challenge), a
+  **stochastic-latent world model** (Gaussian posterior, sampled latent, KL-tied transition
+  prior + decoded-EE grounding + a transition-prediction loss), and a **value function**
+  (actor-critic trained in imagination, returns bootstrapped by a learned critic). The spiking
+  actor + critic learn to reach **through** the learned world model: real reach distance
+  **1.03 → 0.48 m**, world-model recon **0.26 m**, critic loss **31.6 → 0.45**.
+### Honest notes
+- The **world model is a plain MLP** — a small spiking net can't regress 6-joint FK precisely
+  enough (measured recon ~0.9 m), which gives the actor wrong imagined gradients and the agent
+  fails to reach. The **actor + critic are spiking** — the neuromorphic controller is the point.
+  **Joint limits (±0.4 rad)** keep the FK smooth and learnable. Planar (2D workspace),
+  analytic-gradient actor; a literal 3D Franka URDF + dynamics, pixels, and discrete latents stay
+  out of scope. Own venv (`.venv-arm`), excluded from CI.
+
 ## [v0.57] — Joint world-model RL (closed loop, both nets spiking)
 ### Added
 - `snn_world_model_rl.py`: closes the Policy Network + Forward Dynamics Model into ONE
