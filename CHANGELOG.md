@@ -3,6 +3,20 @@
 All notable changes to the Spiking Neural Data Lake. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); each version is a git tag.
 
+## [v0.46] — Real-gesture recognition via the order-aware Paradigm B engine (63% → 95%)
+The builder's labeled captures (MakiKuri00 — `robot arm/{IDLE,HAND_APPROACH,HAND_RETREAT}.csv`,
+already committed in PR #6) now run end-to-end.
+### Added
+- `gesture_recognition.py`: recognizes the 3 real gestures. First pass (template / Van Rossum on
+  min-max-normalized windows) hit **63%** — IDLE separated (82%) but APPROACH/RETREAT collapsed:
+  they're **time-reversed** (distance falling vs rising) and that matcher is direction-blind.
+  Fix: wire the distance trajectory through Paradigm B's **order-aware** `match_sequence` — bin
+  distance NEAR/MID/FAR, detect `FAR→NEAR` (approach) vs `NEAR→FAR` (retreat), with a
+  net-direction fallback for noisy windows → **95%** (APPROACH 98%, RETREAT 85%, IDLE 100%).
+  The exact `[5→17→42] vs [42→17→5]` discrimination Paradigm B was built for.
+### CI
+- `gesture_recognition` added → **30 self-checks**, green.
+
 ## [v0.45] — Builder's first real capture, ingested (CSV adapter)
 MakiKuri00 pushed the first real hardware capture — `robot arm/serial_sensor_log.csv` (ESP32
 ultrasonic + IR, 812 lines) and a pyserial logger `sensor_reading.py`.
