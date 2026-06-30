@@ -1,37 +1,26 @@
-import serial
-import csv
-from datetime import datetime
+import serial, csv, sys
 
-port = 'COM8'  # Configure to same port as in Arduino IDE
-ser = serial.Serial(port, 115200) 
+PORT = "COM8" # Update according to port shown in Arduino IDE
+label = sys.argv[1] if len(sys.argv) > 1 else "capture"   # gesture name = the file name
+out = f"{label}.csv"
 
-try:
-    with open("robot arm/serial_sensor_log.csv", mode='x', newline='') as file:
-        writer = csv.writer(file)
-        writer.writerow(["Timestamp", "Sensor_1", "Sensor_2"])
-except FileExistsError:
-    pass
-
-try:
-    while True:
-        if ser.in_waiting > 0:
-            line = ser.readline().decode('utf-8').strip()
-            
-            # Skip empty lines
-            if not line:
-                continue
-                
-            sensor_data = line.split(',')
-            current_time = datetime.now().strftime("%H:%M:%S")
-            row_to_write = [current_time] + sensor_data
-            
-            # Open and close inside the loop to guarantee data is saved immediately
-            with open("robot arm/serial_sensor_log.csv", mode='a', newline='') as file:
-                writer = csv.writer(file)
-                writer.writerow(row_to_write)
-            
-            print(f"Logged to CSV: {row_to_write}")
-                
-except KeyboardInterrupt:
-    print("Logging stopped.")
-    ser.close()
+ser = serial.Serial(PORT, 115200)
+with open(out, "w", newline="") as f:
+    w = csv.writer(f)
+    w.writerow(["label", "Sensor_1", "Sensor_2"])         # labeled, numbers only
+    print(f"Recording '{label}' -> {out}. Do the gesture repeatedly. Ctrl-C to stop.")
+    try:
+        while True:
+            line = ser.readline().decode("utf-8", "ignore").strip()
+            parts = [p.strip() for p in line.split(",")]
+            if len(parts) != 2:
+                continue                                   # skip boot banner / junk
+            try:
+                d, t = float(parts[0]), float(parts[1])
+            except ValueError:
+                continue                                   # skip any non-numeric line
+            w.writerow([label, d, t])
+            f.flush()
+    except KeyboardInterrupt:
+        print("stopped.")
+        ser.close()
