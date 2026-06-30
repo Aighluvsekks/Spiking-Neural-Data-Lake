@@ -3,6 +3,31 @@
 All notable changes to the Spiking Neural Data Lake. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); each version is a git tag.
 
+## [v0.44] — PyBullet arm sim + statistical test bounds + SRM neuron
+Adopted the 3 feasible proposals from Gemini's application/robot-arm brief.
+### Added
+- `arm_sim.py`: a 2-link planar arm the closed loop drives — command → joint motion →
+  end-effector pose → collision. **stdlib backend** (exact forward kinematics + geometric
+  collision, CI-green) + optional **pybullet backend** (real physics + contact, headless
+  `DIRECT`) when `pip install pybullet`, guarded → falls back to stdlib. Same command API =
+  **sim-to-real**. Verified: joints move, `JOINT_A_ROTATE(-90deg)` → GROUND collision, E-STOP
+  freezes, the Interpreter drives it.
+- `stats_bounds.py`: **FASER-style** statistical assertion bounds (mean ± k·σ over N runs) for
+  non-deterministic tests — demonstrates a loose hand-floor *misses* a regression the band catches.
+- `srm_neuron.py`: **Spike Response Model** (eps PSP kernel + eta soft-reset/refractory kernel)
+  vs hard-reset IF. Refractoriness regulates firing (9 vs 20 spikes under strong drive); no hard reset.
+### CI
+- 3 added → **28 self-checks**, green.
+### Honest scope
+- pybullet path is guarded + optional (not in CI/zero-dep) — the stdlib kinematic sim is the
+  verified core. SRM is a neuron-mechanism upgrade, not yet wired into the trained classifiers.
+  `stats_bounds` is the FASER *method*, not the (unavailable) tool.
+### Deferred from the brief (infeasible here)
+- eBPF/perf (Linux-kernel only; you're on Windows), ROS2/launch_pytest (no ROS2, premature),
+  memristor (hardware), spiking-transformer (premature, 64-entity KG), fully-temporal/EConv
+  (measured −6 pt), OIDC/SSO + multi-cloud CI matrix (enterprise overkill). Gemini's "95%" is
+  the *unreached* target — measured best = **90.0%**.
+
 ## [v0.43] — Data-quality gates: block promotion to Gold on bad data
 ### Added
 - `data_quality.py` (stdlib): `gate()` enforces **schema** (t/channel in range, int),
