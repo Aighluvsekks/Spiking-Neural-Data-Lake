@@ -72,9 +72,9 @@ resource "google_pubsub_topic" "spikes" {
 }
 
 resource "google_pubsub_subscription" "spikes_sub" {
-  name                 = "spike-telemetry-sub"
-  topic                = google_pubsub_topic.spikes.id
-  ack_deadline_seconds = 30
+  name                       = "spike-telemetry-sub"
+  topic                      = google_pubsub_topic.spikes.id
+  ack_deadline_seconds       = 30
   message_retention_duration = "86400s"
 }
 
@@ -83,10 +83,10 @@ resource "google_pubsub_subscription" "spikes_sub" {
 #   gcloud composer environments create snn-orchestrator --location=$REGION --image-version=composer-2-airflow-2
 # then upload gcp/composer_dag.py to the env's dags/ bucket.
 
-output "bucket"      { value = google_storage_bucket.lake.name }
-output "dataset"     { value = google_bigquery_dataset.lake.dataset_id }
-output "connection"  { value = google_bigquery_connection.biglake.connection_id }
-output "image_repo"  { value = google_artifact_registry_repository.images.repository_id }
+output "bucket" { value = google_storage_bucket.lake.name }
+output "dataset" { value = google_bigquery_dataset.lake.dataset_id }
+output "connection" { value = google_bigquery_connection.biglake.connection_id }
+output "image_repo" { value = google_artifact_registry_repository.images.repository_id }
 output "service_acct" { value = google_service_account.lake_sa.email }
 output "pubsub_topic" { value = google_pubsub_topic.spikes.name }
-output "pubsub_sub"   { value = google_pubsub_subscription.spikes_sub.name }
+output "pubsub_sub" { value = google_pubsub_subscription.spikes_sub.name }

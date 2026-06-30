@@ -1,10 +1,19 @@
 # Deploying on GCP (native)
 
-> ⚠️ **UNVERIFIED — pending Phase 1 cloud run.** Every script and Terraform file here is
-> written but has **not** been executed end-to-end against a live GCP project (no
-> `gcloud auth` run yet). Treat it as a reference deployment, not a tested path. The
-> zero-dep local pipeline (CI-green) is the verified one. Remove this banner after the
-> first successful Phase 1 run.
+> ✅ **VERIFIED — Phase 1 ran end-to-end on 2026-06-30** against project `snn-data-lake-prod`:
+> Terraform infra → Bronze in GCS → Dataproc Serverless Medallion ETL → BigLake/BigQuery. The
+> Gold table surfaced the injected burst channels (7, 42) at top firing rate, `synchrony_cv`
+> 0.399 — identical to the local PoC. **Run notes (real gotchas hit, fix these up front):**
+> - Enable **`compute.googleapis.com`** too — the default VPC/subnet won't exist without it —
+>   then `gcloud compute networks subnets update default --region=us-central1 --enable-private-ip-google-access`
+>   (Dataproc Serverless requires Private Google Access).
+> - Terraform uses **Application Default Credentials**, separate from the gcloud CLI login:
+>   `gcloud auth application-default login`.
+> - `us-central1-b` hit a transient capacity squeeze → ran the batch in **us-east1** (the lake
+>   bucket stayed in us-central1; GCS reads cross-region). Needs a same-region staging bucket.
+> - On Windows, `batches submit pyspark <local.py>` stages the file with a `\` and fails on the
+>   GCS URI — **upload the script to GCS first and submit the `gs://` URI**.
+> - `bq` needs its own Python interpreter — set `CLOUDSDK_PYTHON` to an available one.
 >
 > **Storage upgrade (Delta Lake):** the streaming Bronze sink (`dataflow_ingest.py`) writes
 > vanilla Parquet — at high event rates that's the small-file problem. The fix is a Delta

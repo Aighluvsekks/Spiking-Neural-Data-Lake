@@ -22,6 +22,13 @@ data/
 *.npz
 MNIST/
 
+# Terraform (local state + provider cache — never commit state, it can hold sensitive detail)
+infra/.terraform/
+infra/.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+*.tfvars
+
 # Tooling output
 graphify-out/
 .graphify*/

@@ -3,6 +3,23 @@
 All notable changes to the Spiking Neural Data Lake. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); each version is a git tag.
 
+## [v0.59] — GCP Phase 1 verified end-to-end + Vertex job fix
+### Verified
+- **Phase 1 ran end-to-end on a live GCP project** (`snn-data-lake-prod`): Terraform infra →
+  Bronze in GCS → **Dataproc Serverless** Medallion ETL → **BigLake/BigQuery**. The Gold table
+  surfaced the injected burst channels (7, 42) at top firing rate, `synchrony_cv` 0.399 —
+  identical to the local PoC. The cloud path is no longer unverified.
+### Changed
+- `gcp/README.md`: UNVERIFIED banner → **VERIFIED** + run notes (the real gotchas: enable
+  `compute.googleapis.com` so the default subnet exists + Private Google Access; Terraform needs
+  ADC separate from CLI auth; us-central1 zone capacity → ran in us-east1; the Windows
+  `submit pyspark <local.py>` backslash-staging bug → submit the `gs://` URI; set `CLOUDSDK_PYTHON`).
+- `gcp/submit_vertex.sh`: launch the **6400/60k tuned config** (`NORD_INH=250`,
+  `NORD_THETA_PLUS=0.2`, 3 epochs — the ~95% attempt) via a job config with container env, not
+  the image's 86% default (inline `--worker-pool-spec` can't set env). Gated on Vertex L4 quota.
+- `infra/main.tf`: `terraform fmt`.
+- `.gitignore`: never commit Terraform state (`*.tfstate`, `.terraform/`).
+
 ## [v0.58] — High-dim spiking MBRL: Dreamer-lite on a 6-DOF arm
 ### Added
 - `snn_dreamer_6dof.py`: a model-based-RL agent with all three frontier pieces — a **6-joint
