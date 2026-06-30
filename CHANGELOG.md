@@ -3,6 +3,19 @@
 All notable changes to the Spiking Neural Data Lake. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); each version is a git tag.
 
+## [v0.57] — Joint world-model RL (closed loop, both nets spiking)
+### Added
+- `snn_world_model_rl.py`: closes the Policy Network + Forward Dynamics Model into ONE
+  model-based-RL loop (Dreamer-style, analytic gradients). The spiking policy learns to reach
+  **through** the learned spiking world model: (1) act in the real arm + collect transitions,
+  (2) train the world model on the arm's **nonlinear actuation** (per-joint gain + saturation),
+  (3) improve the policy via imagined rollouts through the frozen model — no real-arm samples
+  spent on the policy update. Real reach distance **2.695 → 0.116 m (23×)**; world-model
+  prediction error **0.035 rad**. Own venv (`.venv-arm`), excluded from CI.
+### Note
+- 2-DOF, analytic-gradient horizon rollouts. True high-dim model-based RL (stochastic latents,
+  a learned value function, 6-DOF) remains out of scope — this is the deepest research item.
+
 ## [v0.56] — Forward Dynamics Model (Phase 4 world-model half)
 ### Added
 - `snn_motor_control.py` `ForwardDynamics`: a spiking **world model** (snnTorch surrogate
