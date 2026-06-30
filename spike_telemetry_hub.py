@@ -149,7 +149,9 @@ def synth(n_channels, duration, rate, burst_channels, burst_win):
         times = sorted(random.sample(range(duration), k))
         if c in burst_channels:                      # add a dense burst
             b0, b1 = burst_win
-            times = sorted(times + random.sample(range(b0, b1), (b1 - b0) // 3))
+            # set(): a neuron fires at most once per step (canonical AER) — the burst sample
+            # can land on a baseline time, and a duplicate (t,channel) is not a real 2nd spike.
+            times = sorted(set(times + random.sample(range(b0, b1), (b1 - b0) // 3)))
         hub.ingest(c, times)
     return hub
 

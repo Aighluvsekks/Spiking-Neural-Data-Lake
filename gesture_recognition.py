@@ -19,36 +19,26 @@ CI-safe: real CSVs if present, else an inline synthetic 3-gesture set.
 import os
 
 from paradigm_b_engine import match_sequence
+from arm_config import dbin, present, NEAR, MID, FAR, W, STRIDE   # calibration lives in arm_config
 
 DIR = "robot arm"
 GESTURES = ["IDLE", "HAND_APPROACH", "HAND_RETREAT"]
-W = 8
-NEAR, MID, FAR = 0, 1, 2
-
-
-def dbin(d):
-    """Distance -> channel. >=2 m = no object in range (idle)."""
-    if d >= 2.0:
-        return None
-    if d < 0.30:
-        return NEAR
-    if d < 0.60:
-        return MID
-    return FAR
 
 
 def classify(blk):
-    present = [(i, dbin(d)) for i, (d, _) in enumerate(blk) if dbin(d) is not None]
-    if len(present) < max(2, len(blk) // 2):
+    # blk items are (distance, ir); present() fuses IR iff calibrated, else distance-only
+    inrange = [(i, dbin(d)) for i, (d, ir) in enumerate(blk)
+               if present(d, ir) and dbin(d) is not None]
+    if len(inrange) < max(2, len(blk) // 2):
         return "IDLE"
-    appr = match_sequence(present, [FAR, MID, NEAR], W)      # ordered: far -> near
-    retr = match_sequence(present, [NEAR, MID, FAR], W)      # ordered: near -> far
+    appr = match_sequence(inrange, [FAR, MID, NEAR], W)      # ordered: far -> near
+    retr = match_sequence(inrange, [NEAR, MID, FAR], W)      # ordered: near -> far
     if appr and not retr:
         return "HAND_APPROACH"
     if retr and not appr:
         return "HAND_RETREAT"
-    # tie / no clean 3-stage crossing -> net direction of the present distances (still order-aware)
-    pd = [blk[i][0] for i, _ in present]
+    # tie / no clean 3-stage crossing -> net direction of the in-range distances (still order-aware)
+    pd = [blk[i][0] for i, _ in inrange]
     return "HAND_APPROACH" if pd[-1] < pd[0] else "HAND_RETREAT"
 
 
@@ -66,8 +56,8 @@ def load_csv(path):
     return rows
 
 
-def windows(rows, w=W):
-    return [rows[s:s + w] for s in range(0, len(rows) - w + 1, w)]
+def windows(rows, w=W, stride=STRIDE):
+    return [rows[s:s + w] for s in range(0, len(rows) - w + 1, stride)]
 
 
 def _synthetic():
@@ -85,7 +75,7 @@ def build_items():
         items = []
         for g in GESTURES:
             for blk in windows(load_csv(os.path.join(DIR, f"{g}.csv"))):
-                active = sum(1 for d, _ in blk if d < 2.0) >= len(blk) // 2
+                active = sum(1 for d, ir in blk if present(d, ir)) >= len(blk) // 2
                 items.append((blk, g if active else "IDLE"))
         return items, "real capture (robot arm/*.csv)"
     return _synthetic(), "synthetic fallback"

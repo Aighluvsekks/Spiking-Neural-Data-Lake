@@ -1,7 +1,7 @@
 import serial, csv, sys
 
-PORT = "COM8" # Update according to port shown in Arduino IDE
 label = sys.argv[1] if len(sys.argv) > 1 else "capture"   # gesture name = the file name
+PORT = sys.argv[2] if len(sys.argv) > 2 else "COM8"       # 2nd arg overrides; else Arduino IDE port
 out = f"{label}.csv"
 
 ser = serial.Serial(PORT, 115200)

@@ -16,19 +16,4 @@ jobs:
         with:
           python-version: "3.11"
       - name: Run every pure-stdlib script's assert-based self-check
-        run: |
-          set -e
-          for f in spiking_storage_prototype test_prototype snn_classifier \
-                   snn_moe_classifier temporal_coding_storage spike_telemetry_hub \
-                   streaming_hub data_quality paradigm_b_matcher paradigm_b_engine \
-                   spike_preprocessing \
-                   spike_knowledge_graph spike_knowledge_graph_rotate spike_kg_relations \
-                   nmnist_ingest signal_loop learned_matcher reflex valence_stdp cortisol \
-                   interpreter closed_loop make_sensor_dataset sensor_demo \
-                   srm_neuron stats_bounds arm_sim sensor_csv_ingest gesture_recognition \
-                   live_arm demo make_results_plot; do
-            echo "::group::$f"
-            python "$f.py"
-            echo "::endgroup::"
-          done
-          echo "All stdlib self-checks passed."
+        run: python run_selfchecks.py   # canonical module list lives in run_selfchecks.py

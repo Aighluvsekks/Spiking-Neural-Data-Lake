@@ -81,6 +81,25 @@ def gold(bronze_df, silver_df, hub, window):
     return g, path, synchrony, icr
 
 
+def gold_cofiring(silver_df, top_k=10):
+    """Gold materialized view (Gemini brief: synchrony algorithms -> 'relational spikes').
+    Channel-pair synchrony = sum over time bins of (spikes_a * spikes_b): two channels that
+    fire together in the same bins score high (a stimulus-driven burst makes both spike at
+    once). The robot can then query co-active channel groups directly instead of re-running
+    the whole neural inference. Returns the top_k correlated pairs + writes a Parquet view."""
+    s = silver_df.select(["channel", "bin", "spikes"])
+    pairs = (s.join(s, on="bin", suffix="_b")
+             .filter(pl.col("channel") < pl.col("channel_b"))            # unordered pairs, no self
+             .with_columns((pl.col("spikes") * pl.col("spikes_b")).alias("co"))
+             .group_by(["channel", "channel_b"])
+             .agg(pl.col("co").sum().alias("synchrony"))
+             .sort("synchrony", descending=True)
+             .head(top_k))
+    path = os.path.join(LAKE, "gold_cofiring.parquet")
+    pairs.write_parquet(path)
+    return pairs, path
+
+
 def latency_handoff(gold_df, t_steps=32):
     """Gold firing-rate vector -> deterministic latency spikes (1/channel, brighter =
     earlier). This is the SNN-ready representation the repo's models consume."""
@@ -104,6 +123,8 @@ def main():
                                  "synchrony": synchrony},
                            bronze_prior_hash=data_quality.bronze_hash(rows))
     assert dq["gold_checked"], "data-quality gate did not run before Gold"
+    cofire, cf_p = gold_cofiring(s_df)                # synchrony materialized view (relational spikes)
+    top_pair = (cofire["channel"][0], cofire["channel_b"][0])
     handoff = latency_handoff(g_df)
 
     def kb(p):
@@ -118,6 +139,8 @@ def main():
     print(f"GOLD    features        : {g_df.height:,} rows  -> {kb(g_p):.1f} KB Parquet")
     print(f"        population synchrony (CV) : {synchrony:.3f}")
     print(f"        inverse compression ratio : {icr:.3f}  (lower = more structured)")
+    print(f"        top co-firing pair (synchrony view): channels {top_pair} "
+          f"(burst {{7,42}} should surface)")
     print()
 
     # Spark-SQL analog: query Gold Parquet with SQL
@@ -141,8 +164,9 @@ def main():
     assert any(c in top_chs for c in (7, 42)), "Gold/Silver didn't surface the burst channels"
     assert 0.0 < icr < 1.0, f"ICR out of range: {icr}"
     assert synchrony > 0.0 and handoff, "missing Gold synchrony / SNN handoff"
-    print("self-check OK: Bronze roundtrip intact, burst surfaced via Gold, "
-          "ICR valid, synchrony + SNN handoff produced")
+    assert top_pair == (7, 42), f"co-firing view should surface the burst pair (7,42), got {top_pair}"
+    print("self-check OK: Bronze roundtrip intact, burst surfaced via Gold, ICR valid, "
+          "synchrony + SNN handoff produced, co-firing view found the (7,42) burst pair")
 
 
 if __name__ == "__main__":

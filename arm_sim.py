@@ -17,6 +17,8 @@ Backends:
 import re
 import math
 
+from arm_config import TRAJ_DEV_MAX        # trajectory-deviation reflex bound (calibration)
+
 DEG = math.pi / 180.0
 FLOOR_Y = -0.20                 # end-effector below this = ground collision
 OBSTACLE = (0.4, 1.3)           # point obstacle (x, y)
@@ -35,6 +37,7 @@ class ArmSim:
         self.stopped = False
         self.backend = "stdlib"
         self._p = None
+        self.expected_ee = self.ee()   # where the EE SHOULD be given the last command (trajectory ref)
         if use_pybullet:
             self._init_pybullet()
 
@@ -73,15 +76,38 @@ class ArmSim:
             self.gripper = 0.0
             self.stopped = False
         # HOLD / unknown -> no motion
+        self.expected_ee = self.ee()       # a command defines where the arm intends to be
         if self._p is not None:
             self._sync_pybullet()
         return self.state()
+
+    # ---- trajectory-deviation comparator (the "differential position comparator" reflex) ----
+    def perturb(self, da_deg=0.0, db_deg=0.0):
+        """External disturbance (collision, load shift, bump) — moves the arm WITHOUT a command,
+        so the commanded `expected_ee` is unchanged and `deviation()` grows. This is the off-path
+        event the local trajectory comparator must catch before the cloud lake even sees it."""
+        self.theta[0] += da_deg * DEG
+        self.theta[1] += db_deg * DEG
+        if self._p is not None:
+            self._sync_pybullet()
+        return self.state()
+
+    def deviation(self):
+        """Euclidean distance between the ACTUAL end-effector and the intended (commanded) pose."""
+        x, y = self.ee()
+        ex, ey = self.expected_ee
+        return math.hypot(x - ex, y - ey)
+
+    def trajectory_breach(self, bound=TRAJ_DEV_MAX):
+        """Edge trajectory reflex: True when the arm has strayed too far from its commanded path."""
+        return self.deviation() > bound
 
     def state(self):
         x, y = self.ee()
         return {"theta_deg": [round(t / DEG, 1) for t in self.theta],
                 "ee": (round(x, 3), round(y, 3)), "gripper": self.gripper,
-                "stopped": self.stopped, "collision": self.collision(), "backend": self.backend}
+                "stopped": self.stopped, "collision": self.collision(),
+                "deviation": round(self.deviation(), 3), "backend": self.backend}
 
     # ---- optional pybullet physics (headless) ------------------------------
     def _init_pybullet(self):
@@ -161,6 +187,15 @@ def main():
     back = arm.apply("RETRACT_ALL")
     assert not back["stopped"] and back["ee"] == (2.0, 0.0), "retract did not recover"
 
+    # trajectory-deviation comparator: a command stays on-path; an external perturb trips it
+    arm.apply("HOME")
+    assert arm.deviation() < 1e-9 and not arm.trajectory_breach(), "commanded pose must read on-path"
+    arm.perturb(da_deg=20)                              # external shove, NOT a command
+    assert arm.trajectory_breach(), "comparator missed an off-path perturbation"
+    dev = arm.deviation()
+    arm.apply("HOME")                                   # corrective re-home recommits the path
+    assert not arm.trajectory_breach(), "corrective HOME did not clear the trajectory breach"
+
     # integration: Interpreter command -> arm motion
     from interpreter import Interpreter
     cmd = Interpreter().interpret({"match": "JOINT_B_ROTATE"})[0]   # -> "JOINT_B_ROTATE(-10deg)"
@@ -175,10 +210,11 @@ def main():
     print(f"HOME        : ee={home['ee']}")
     print(f"JOINT_A +15 : ee={s['ee']}")
     print(f"collision   : JOINT_A -90deg -> {coll['collision']}")
+    print(f"trajectory  : perturb +20deg -> deviation {dev:.3f}m (bound {TRAJ_DEV_MAX}) -> breach")
     print(f"interpreter : '{cmd}' -> joint B = {moved['theta_deg'][1]} deg")
     print("=" * 56)
     print("self-check OK: commands move joints, collision detected, E-STOP freezes, "
-          "Interpreter drives the arm (sim-to-real ready)")
+          "trajectory comparator catches off-path perturbation, Interpreter drives the arm")
     arm.close()
 
 

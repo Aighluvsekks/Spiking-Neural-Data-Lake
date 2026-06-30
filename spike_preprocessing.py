@@ -129,6 +129,30 @@ def van_rossum_distance(ev_a, ev_b, n_features=N, t_steps=T, tau=TAU):
     return math.sqrt(total / tau)
 
 
+# ---- Silver-tier temporal denoise -------------------------------------------
+def denoise(events, window=2, min_neighbors=1):
+    """Silver-tier noise filter (Gemini brief): drop ISOLATED spikes — events with fewer
+    than `min_neighbors` other spikes within +/- `window` steps on the SAME channel.
+
+    Spurious spikes (membrane leak, random synaptic firing) arrive alone; real signal fires
+    in temporally correlated bursts. Removing isolated specks before learning stops noise
+    from contaminating STDP / matching. Returns a new sorted [(t, feature), ...].
+    Pure stdlib; opt-in (callers pass already-encoded events) so verified paths don't shift."""
+    by_ch = {}
+    for t, i in events:
+        by_ch.setdefault(i, []).append(t)
+    kept = []
+    for i, times in by_ch.items():
+        ts = sorted(times)
+        for idx, t in enumerate(ts):
+            neighbors = sum(1 for jdx, u in enumerate(ts)
+                            if jdx != idx and abs(u - t) <= window)
+            if neighbors >= min_neighbors:
+                kept.append((t, i))
+    kept.sort()
+    return kept
+
+
 # ---- demo + measure ---------------------------------------------------------
 def main():
     random.seed(0)
@@ -189,6 +213,13 @@ def main():
     print(f"4. query identity         : SAME image encoded twice ->")
     print(f"     deterministic latency : Van Rossum dist = {d_det:.3f}  (recognised as SAME query)")
     print(f"     Poisson (stochastic)  : Van Rossum dist = {d_poi:.2f}  (looks like DIFFERENT data!)")
+
+    # 5. Silver-tier denoise: a real burst survives, isolated noise specks are removed
+    burst = [(5, 0), (6, 0), (7, 0)]                  # correlated signal on channel 0
+    noise = [(20, 1), (3, 2)]                          # lone specks on channels 1, 2
+    cleaned = denoise(burst + noise, window=2, min_neighbors=1)
+    print(f"5. Silver denoise         : {len(burst+noise)} spikes -> {len(cleaned)} "
+          f"(burst kept, {len(burst+noise)-len(cleaned)} isolated specks dropped)")
     print("=" * 60)
 
     # ---- self-checks --------------------------------------------------------
@@ -204,8 +235,10 @@ def main():
     # determinism is required for query identity:
     assert d_det == 0.0, "deterministic encoding must reproduce identical spikes"
     assert d_poi > 0.0, "Poisson should produce different trains for the same input"
+    assert set(cleaned) == set(burst), f"denoise should keep the burst, drop specks; got {cleaned}"
+    assert denoise([(5, 0)]) == [], "a single lone spike must be removed as noise"
     print("self-check OK: deterministic, cache intact, precompute faster, "
-          "Van Rossum separates & matches, Poisson breaks query identity")
+          "Van Rossum separates & matches, Poisson breaks query identity, denoise drops isolated specks")
 
 
 if __name__ == "__main__":

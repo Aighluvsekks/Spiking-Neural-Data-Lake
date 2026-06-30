@@ -60,6 +60,31 @@ def check_immutable(rows, prior_hash):
     return True
 
 
+def check_no_duplicates(rows):
+    """No event (t, channel) may appear twice — a duplicate means double-ingest / corruption.
+    (Rows are channel-major, not globally time-sorted, so we do NOT assert time ordering.)"""
+    seen = set()
+    for i, (t, c) in enumerate(rows):
+        key = (int(t), int(c))
+        if key in seen:
+            raise DataQualityError(f"row {i}: duplicate event {key} (double-ingest)")
+        seen.add(key)
+    return True
+
+
+def check_event(ev, n_channels):
+    """Streaming parity: validate ONE event dict {'t','channel'} as it lands (no duration
+    bound in a stream). Lets dataflow_ingest gate per-message with the same schema rules."""
+    t, c = ev.get("t"), ev.get("channel")
+    if not (isinstance(t, int) and isinstance(c, int)):
+        raise DataQualityError(f"non-int event (t={t!r}, c={c!r})")
+    if t < 0:
+        raise DataQualityError(f"t={t} negative")
+    if not (0 <= c < n_channels):
+        raise DataQualityError(f"channel={c} outside [0,{n_channels})")
+    return ev
+
+
 def check_gold(gold):
     """gold: {'icr': float, 'rates': [float], 'synchrony': float}."""
     icr = gold.get("icr")
@@ -78,6 +103,7 @@ def gate(rows, n_channels, duration, gold=None, bronze_prior_hash=None):
     """Run every gate; raise DataQualityError on the first failure, else return a report.
     Call this BEFORE writing the Gold layer — a raise blocks promotion."""
     check_schema(rows, n_channels, duration)
+    check_no_duplicates(rows)
     check_encodable(rows)
     check_immutable(rows, bronze_prior_hash)
     if gold is not None:
@@ -100,6 +126,9 @@ def main():
         ("channel out of range", lambda: check_schema([(0, n)], n, dur)),
         ("float event (non-int)", lambda: check_schema([(1.5, 0)], n, dur)),
         ("Bronze mutated", lambda: check_immutable(rows + [(1, 1)], bh)),
+        ("duplicate event", lambda: check_no_duplicates([(5, 1), (5, 1)])),
+        ("stream non-int", lambda: check_event({"t": 1.5, "channel": 0}, n)),
+        ("stream channel oob", lambda: check_event({"t": 1, "channel": n}, n)),
         ("NaN ICR", lambda: check_gold({"icr": float("nan"), "rates": [], "synchrony": 0.0})),
         ("ICR > 1", lambda: check_gold({"icr": 1.5, "rates": [], "synchrony": 0.0})),
         ("negative rate", lambda: check_gold({"icr": 0.3, "rates": [-1.0], "synchrony": 0.0})),

@@ -3,6 +3,66 @@
 All notable changes to the Spiking Neural Data Lake. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); each version is a git tag.
 
+## [v0.54] — Surrogate-gradient SNN motor control (research track)
+### Added
+- `snn_motor_control.py`: a spiking **Policy Network** trained end-to-end with snnTorch
+  **surrogate gradients** (fast_sigmoid) for a 2-DOF reach task — BPTT through differentiable
+  forward kinematics. Train loss 0.239 → 0.003 (95×), reach error 0.319 → 0.053 m. Proves the
+  gradient path through non-differentiable spikes. Own venv (`.venv-arm`: torch CPU + snntorch),
+  **excluded from CI**. Scoped down from the brief's Forward-Dynamics + 6-DOF Franka (deferred).
+
+## [v0.53] — Delta Lake PoC (lakehouse-tier storage upgrade)
+### Added
+- `lakehouse/delta_demo.py`: local Delta Lake proof (delta-rs / `deltalake`, no Spark/JVM) —
+  12 streaming micro-batch appends → 12 files → `OPTIMIZE` → **1 file**, 2400 rows intact,
+  **time-travel** to v0. Runs in `.venv-lake`.
+### Changed
+- `gcp/dataflow_ingest.py`, `gcp/README.md`, `docs/STORAGE_FORMATS.md`: note Delta as the
+  streaming-sink upgrade for the (still **unverified**) cloud Bronze path.
+
+## [v0.52] — NEF spiking PID + Gold synchrony view
+### Added
+- `spiking_pid.py`: NEF-style **population-coded** P/I/D controller driving `arm_sim` joints —
+  converges to setpoint, noise-robust. Stdlib, **CI**.
+- `lakehouse/medallion.py` `gold_cofiring()`: Gold **synchrony materialized view** (channel-pair
+  co-firing) — surfaces the injected burst pair (7, 42) as the top "relational spike".
+### Fixed
+- `spike_telemetry_hub.py` `synth()`: dedupe burst timestamps (a neuron fires at most once per
+  step) — the bursty data otherwise tripped the v0.50 no-duplicate gate inside `medallion`, which
+  is not in the stdlib CI, so the conflict was latent.
+
+## [v0.51] — Robot-arm + Silver picks from the Gemini brief
+### Added
+- `population_encoding.py`: RBF/Gaussian receptive-field **population encoder** for continuous
+  signals — noise-robust vs single-neuron coding. Stdlib, CI.
+- `arm_bridge.py`: stdlib **UDP `OUTCOME` back-channel** — closes the long-noted split-process
+  feedback gap (`live_arm` ↔ `interpreter --pipe`). CI.
+- `arm_sim.py`: **trajectory-deviation comparator** (`expected_ee`, `perturb()`, `deviation()`,
+  `trajectory_breach()`) — a local edge reflex for off-path perturbations, distinct from the
+  contact reflex. Bound `TRAJ_DEV_MAX` in `arm_config.py`.
+- `spike_preprocessing.py` `denoise()`: Silver-tier temporal noise filter (drop isolated
+  uncorrelated spikes, keep bursts).
+### CI
+- 33 → **36** self-checks, green.
+
+## [v0.50] — Robustness + infra hardening
+### Added
+- `arm_config.py`: central arm calibration (distance bins, `CONTACT`, `W`/`STRIDE`, IR fusion,
+  `bins_from_capture()`).
+- `run_selfchecks.py`: single canonical self-check runner (CI shrinks to one line); forces UTF-8
+  on children (fixes a Windows cp1252 crash in `spike_knowledge_graph`/`spike_kg_relations`).
+- `docs/STORAGE_FORMATS.md`: the `.spk` / `.spc` / `.spkl` / `.parquet` / `.jsonl` format map.
+### Changed
+- `gesture_recognition.py` + `live_arm.py`: import calibration from `arm_config`; `live_arm`
+  gains serial **reconnect-with-backoff** and a `--stride` sliding window; `arm_config.present()`
+  fuses the IR channel (off by default — polarity uncalibrated).
+- `robot arm/sensor_reading.py`: serial port overridable via `argv[2]`.
+- `data_quality.py`: `check_no_duplicates` (wired into `gate`) + `check_event` (streaming parity,
+  wired into the `dataflow_ingest` Gate step).
+- `gcp/README.md`: **UNVERIFIED** banner on the (never-run) cloud deployment.
+### CI
+- 32 → **33** self-checks (added `arm_config`), green.
+
 ## [v0.49] — Repo cleanup: clone-and-run in one step
 ### Changed
 - README: a top-level **Clone & run** section — `git clone … && python demo.py` (one file,

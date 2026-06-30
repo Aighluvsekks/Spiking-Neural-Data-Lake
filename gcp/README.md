@@ -1,5 +1,17 @@
 # Deploying on GCP (native)
 
+> ⚠️ **UNVERIFIED — pending Phase 1 cloud run.** Every script and Terraform file here is
+> written but has **not** been executed end-to-end against a live GCP project (no
+> `gcloud auth` run yet). Treat it as a reference deployment, not a tested path. The
+> zero-dep local pipeline (CI-green) is the verified one. Remove this banner after the
+> first successful Phase 1 run.
+>
+> **Storage upgrade (Delta Lake):** the streaming Bronze sink (`dataflow_ingest.py`) writes
+> vanilla Parquet — at high event rates that's the small-file problem. The fix is a Delta
+> sink (transaction log + `OPTIMIZE` compaction + ACID/time-travel), proven locally in
+> [`lakehouse/delta_demo.py`](../lakehouse/delta_demo.py). Apply it here when the cloud path
+> is first run.
+
 Takes the local Medallion PoC (`lakehouse/medallion.py`) to a cloud lakehouse:
 **GCS + BigLake/Iceberg + BigQuery + Dataproc Serverless + Vertex AI**. Pay-per-use;
 near-zero at rest. You run these with your own auth/billing — nothing here provisions

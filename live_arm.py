@@ -17,23 +17,36 @@ Gesture -> command map (sensor domain): approach = grab the incoming object, ret
 import os
 import sys
 
+import time
+
 import signal_loop as S
 from gesture_recognition import classify, load_csv, windows, W
 from interpreter import Interpreter
 from arm_sim import ArmSim
+from arm_config import CONTACT, STRIDE          # reflex distance + window stride: calibration in arm_config
 
 SENSOR_COMMANDS = {"HAND_APPROACH": "GRIPPER_CLOSE",   # grab the approaching object
                    "HAND_RETREAT":  "GRIPPER_OPEN",    # release as it leaves
                    "IDLE":          "HOLD"}
-CONTACT = 0.04                    # distance (m) below which the reflex fires (imminent contact)
 
 
-def serial_samples(port, baud=115200):
-    """(distance, temp) from the ESP32; strips banner / non-numeric lines."""
-    for line in S.serial_lines(port, baud):
-        v = S.parse_line(line)
-        if v and len(v) >= 2:
-            yield v[0], v[1]
+def serial_samples(port, baud=115200, reconnect=True):
+    """(distance, ir) from the ESP32; strips banner / non-numeric lines. Real hardware
+    drops the link — reconnect with backoff instead of crashing the arm loop."""
+    backoff = 0.5
+    while True:
+        try:
+            for line in S.serial_lines(port, baud):
+                v = S.parse_line(line)
+                if v and len(v) >= 2:
+                    yield v[0], v[1]
+            return                                # generator ended cleanly (e.g. EOF)
+        except Exception as e:                    # SerialException, decode, device unplug
+            if not reconnect:
+                raise
+            sys.stderr.write(f"serial {port} dropped ({e}); reconnecting in {backoff:.1f}s\n")
+            time.sleep(backoff)
+            backoff = min(backoff * 2, 5.0)       # cap backoff at 5s
 
 
 def replay_samples(paths):
@@ -42,8 +55,10 @@ def replay_samples(paths):
             yield d, t
 
 
-def run(samples, arm, interp, emit):
-    """Stream (d,t) -> windowed recognition -> command -> arm. Returns action stats."""
+def run(samples, arm, interp, emit, stride=STRIDE):
+    """Stream (d,ir) -> windowed recognition -> command -> arm. Returns action stats.
+    stride < W slides the window (acts every `stride` samples) for lower live latency;
+    stride == W (default) is non-overlapping, identical to before."""
     buf = []
     stats = {"windows": 0, "GRIPPER_CLOSE": 0, "GRIPPER_OPEN": 0, "HOLD": 0, "reflex": 0}
     for d, t in samples:
@@ -63,7 +78,7 @@ def run(samples, arm, interp, emit):
             stats[cmd] = stats.get(cmd, 0) + 1
             emit({"gesture": gesture, "command": cmd, "gripper": arm.gripper,
                   "ee": arm.state()["ee"]})
-            buf = []
+            buf = buf[stride:]                             # slide (stride==W -> full reset)
     return stats
 
 
@@ -75,14 +90,16 @@ def main():
     def emit(d):
         print(__import__("json").dumps(d)); sys.stdout.flush()
 
+    stride = int(args[args.index("--stride") + 1]) if "--stride" in args else STRIDE
+
     if "--serial" in args:
         port = args[args.index("--serial") + 1]
         baud = int(args[args.index("--baud") + 1]) if "--baud" in args else 115200
-        sys.stderr.write(f"live: {port}@{baud} -> recognize -> Interpreter -> arm\n")
-        run(serial_samples(port, baud), arm, interp, emit)        # until interrupted
+        sys.stderr.write(f"live: {port}@{baud} stride={stride} -> recognize -> Interpreter -> arm\n")
+        run(serial_samples(port, baud), arm, interp, emit, stride)   # until interrupted
         return
     if "--csv" in args:
-        run(replay_samples([args[args.index("--csv") + 1]]), arm, interp, emit)
+        run(replay_samples([args[args.index("--csv") + 1]]), arm, interp, emit, stride)
         return
 
     # default: replay the builder's labeled captures (hardware-free) + self-check
