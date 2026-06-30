@@ -19,6 +19,35 @@ PyTorch + snnTorch / BindsNET.
 
 ---
 
+## Clone & run
+
+Needs only **Python 3.11+** — no install, no hardware.
+
+```bash
+git clone https://github.com/Aighluvsekks/Spiking-Neural-Data-Lake.git
+cd Spiking-Neural-Data-Lake
+
+python demo.py            # the whole loop in one file: sensor -> recognize -> command -> arm + reflex
+python live_arm.py        # full closed loop on the builder's REAL captured gestures (95% recognition)
+python gesture_recognition.py   # order-aware recognition on the real data, with the confusion table
+```
+
+Run the **full zero-dep self-check suite** (exactly what CI runs — the 32 stdlib modules; the
+MNIST/GPU models are excluded as they need PyTorch). The list lives in
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) and [docs/RUNNING.md](docs/RUNNING.md):
+```bash
+python spiking_storage_prototype.py   # storage
+python paradigm_b_engine.py           # in-storage order-aware query
+python closed_loop.py                 # the full brain-stack loop (encode→match→reward→learn)
+# ...full list (32) in docs/RUNNING.md §1
+```
+
+Optional extras (own venv each; see [docs/RUNNING.md](docs/RUNNING.md)): `polars` for the
+Medallion lakehouse, `tonic` for real N-MNIST, `torch`+`snntorch`+`bindsnet` for the MNIST/GPU
+models, `pybullet` for arm physics, `pyserial` for the live ESP32 (`python live_arm.py --serial COM8`).
+
+---
+
 ## What is this?
 
 A "lake" of runnable spiking-network prototypes covering the three things a data system

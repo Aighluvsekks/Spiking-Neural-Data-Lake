@@ -3,6 +3,17 @@
 All notable changes to the Spiking Neural Data Lake. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); each version is a git tag.
 
+## [v0.49] — Repo cleanup: clone-and-run in one step
+### Changed
+- README: a top-level **Clone & run** section — `git clone … && python demo.py` (one file,
+  zero-dep), then `live_arm.py` (full loop on the real captures) and `gesture_recognition.py`
+  (95%), plus the full 32-module self-check suite and optional extras.
+- `.gitignore`: ignore local `*.docx` working files and `.venv-arm/`.
+### Verified
+- A **fresh `git clone`** runs `demo.py` / `live_arm.py` / `gesture_recognition.py` with only
+  Python 3.11+ — no install, no hardware — all self-checks pass.
+(Docs / config only — no code or graph change.)
+
 ## [v0.48] — One-file runnable demo (`python demo.py`)
 ### Added
 - `demo.py`: a single, **self-contained, zero-dependency** file that runs the whole loop on

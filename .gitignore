@@ -8,8 +8,12 @@ __pycache__/
 .venv/
 .venv-lake/
 .venv-nmnist/
+.venv-arm/
 venv/
 env/
+
+# Local working docs (not repo artifacts)
+*.docx
 
 # Data + model artifacts (not committed — fetched/trained locally)
 data/
