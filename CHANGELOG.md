@@ -3,6 +3,17 @@
 All notable changes to the Spiking Neural Data Lake. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); each version is a git tag.
 
+## [v0.48] — One-file runnable demo (`python demo.py`)
+### Added
+- `demo.py`: a single, **self-contained, zero-dependency** file that runs the whole loop on
+  embedded sample data — sensor `(distance, temp)` → window → **order-aware recognition** →
+  Interpreter (gesture→command) → arm motion → **contact reflex**. Narrated walkthrough +
+  self-check. Download one file, `python demo.py` — no repo clone, no deps, no hardware. Optional
+  `--serial COM8` (pyserial) for the live ESP32. A bundled mirror of the production modules for
+  instant testing.
+### CI
+- `demo` → **32 self-checks**, green.
+
 ## [v0.47] — Live real-hardware loop closed: sensor → recognize → Interpreter → arm sim
 ### Added
 - `live_arm.py`: streams sensor `(distance, temp)` → buffers W → **order-aware** gesture
