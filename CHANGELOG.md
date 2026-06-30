@@ -3,6 +3,18 @@
 All notable changes to the Spiking Neural Data Lake. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); each version is a git tag.
 
+## [v0.47] — Live real-hardware loop closed: sensor → recognize → Interpreter → arm sim
+### Added
+- `live_arm.py`: streams sensor `(distance, temp)` → buffers W → **order-aware** gesture
+  recognition (v0.46) → **Interpreter** (gesture→command: approach=`GRIPPER_CLOSE`,
+  retreat=`GRIPPER_OPEN`, idle=`HOLD`) → **arm_sim** (joint/gripper motion), with a **contact
+  reflex** (d < 0.04 m → `EMERGENCY_STOP`). `--serial COM8` runs live off the ESP32; replays the
+  builder's labeled CSVs hardware-free by default. Verified on **real data**: APPROACH → 46
+  `GRIPPER_CLOSE` + 9 contact-STOPs, RETREAT → 39 `GRIPPER_OPEN`, arm gripper closes and stops on
+  contact. **Loop closed.**
+### CI
+- `live_arm` → **31 self-checks**, green.
+
 ## [v0.46] — Real-gesture recognition via the order-aware Paradigm B engine (63% → 95%)
 The builder's labeled captures (MakiKuri00 — `robot arm/{IDLE,HAND_APPROACH,HAND_RETREAT}.csv`,
 already committed in PR #6) now run end-to-end.

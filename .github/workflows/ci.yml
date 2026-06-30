@@ -26,7 +26,7 @@ jobs:
                    nmnist_ingest signal_loop learned_matcher reflex valence_stdp cortisol \
                    interpreter closed_loop make_sensor_dataset sensor_demo \
                    srm_neuron stats_bounds arm_sim sensor_csv_ingest gesture_recognition \
-                   make_results_plot; do
+                   live_arm make_results_plot; do
             echo "::group::$f"
             python "$f.py"
             echo "::endgroup::"
