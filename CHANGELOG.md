@@ -3,6 +3,20 @@
 All notable changes to the Spiking Neural Data Lake. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); each version is a git tag.
 
+## [v0.56] — Forward Dynamics Model (Phase 4 world-model half)
+### Added
+- `snn_motor_control.py` `ForwardDynamics`: a spiking **world model** (snnTorch surrogate
+  gradients) predicting the next end-effector position from (joint angles, action deltas).
+  Trained on `arm_sim` transitions with FK as ground truth — loss 1.34 → 0.004 (370×),
+  prediction error 0.073 m.
+- `model_based_reach()`: **model-predictive control** — optimize the action delta *through the
+  frozen learned model* to hit the target, then apply to the real arm. Reach error 0.073 m
+  (no-op 0.319). Completes the brief's Forward-Dynamics + Policy pair. Own venv (`.venv-arm`),
+  excluded from CI.
+### Note
+- Still 2-DOF; true joint world-model RL (both nets in one closed RL loop) and the 6-DOF Franka
+  remain out of scope.
+
 ## [v0.55] — Wire the new modules into the live loops
 ### Changed
 - `spiking_pid.py`: the control loop now runs `arm_sim`'s **trajectory-deviation comparator** —
