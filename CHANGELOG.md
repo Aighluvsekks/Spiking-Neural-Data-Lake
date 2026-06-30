@@ -3,6 +3,26 @@
 All notable changes to the Spiking Neural Data Lake. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); each version is a git tag.
 
+## [v0.45] — Builder's first real capture, ingested (CSV adapter)
+MakiKuri00 pushed the first real hardware capture — `robot arm/serial_sensor_log.csv` (ESP32
+ultrasonic + IR, 812 lines) and a pyserial logger `sensor_reading.py`.
+### Review of the capture
+- Logger prepends a `Timestamp` column → our numeric-only contract rejects **every row (0/812)**.
+- ESP32 boot banner leaked into the log (~10 lines) — the "no text on the data port" violation.
+- Temp logged in **Kelvin** (~294–300) with the `-1` idle sentinel (matches `sensor_fixed.ino`).
+- Real dynamics present (distance 0.07–8 m, temp toggling) but **unlabeled** (one continuous log).
+### Added
+- `sensor_csv_ingest.py`: adapter — strips the timestamp column, skips header/banner, feeds clean
+  `(distance, temp)` windows into the loop. Verified on the **real capture**: 801 rows → 100
+  windows → lake; rejected vs the robot-command library (wrong domain, expected) → continual
+  learning discovered **2 recurring sensor regimes** (idle 97 + transient 3). `--stream` pipes
+  into `signal_loop --stdin --window 8`.
+### CI
+- `sensor_csv_ingest` added → **29 self-checks**, green.
+### Still needed from the builder
+- Numeric-only logging (drop the timestamp prepend, or we keep adapting) and **labeled
+  per-gesture captures** — the outstanding training deliverable.
+
 ## [v0.44] — PyBullet arm sim + statistical test bounds + SRM neuron
 Adopted the 3 feasible proposals from Gemini's application/robot-arm brief.
 ### Added
