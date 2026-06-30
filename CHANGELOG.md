@@ -3,6 +3,21 @@
 All notable changes to the Spiking Neural Data Lake. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); each version is a git tag.
 
+## [v0.55] — Wire the new modules into the live loops
+### Changed
+- `spiking_pid.py`: the control loop now runs `arm_sim`'s **trajectory-deviation comparator** —
+  an external perturbation injected mid-run is flagged (edge safety reflex) and the PID drives
+  the joint back to setpoint. (`population_encoding` already feeds the error code, so the
+  population-coding → spiking-PID → arm_sim + comparator chain is now end-to-end.)
+- `closed_loop.py`: the Interpreter's `OUTCOME` reward can route over the **`arm_bridge` UDP
+  back-channel** (opt-in `bridge=`) — the split-process feedback path, transparent to learning
+  (same value learned with or without the bridge).
+### Note
+- `live_arm.py` left as-is: it issues gripper commands (no joint motion), so the trajectory
+  comparator has nothing to compare there — it belongs in the joint-control path (`spiking_pid`).
+### CI
+- 36/36 self-checks, green (additive; the 95% recognition path unchanged).
+
 ## [v0.54] — Surrogate-gradient SNN motor control (research track)
 ### Added
 - `snn_motor_control.py`: a spiking **Policy Network** trained end-to-end with snnTorch

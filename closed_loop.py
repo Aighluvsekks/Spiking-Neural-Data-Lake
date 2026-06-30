@@ -14,9 +14,11 @@ Run:
 import signal_loop as S
 from reflex import Reflex
 from interpreter import Interpreter
+import arm_bridge as AB
 
 
-def run_episode(signals, lib=None, assume_success=True, base_threshold=0.10, trace=None):
+def run_episode(signals, lib=None, assume_success=True, base_threshold=0.10, trace=None,
+                bridge=None):
     """Drive raw signal lines through the whole stack with live reward feedback.
     Returns the live state objects so callers can inspect what was learned."""
     lib = S.build_default_library() if lib is None else lib
@@ -53,8 +55,13 @@ def run_episode(signals, lib=None, assume_success=True, base_threshold=0.10, tra
         cmd, reward = itp.interpret({"match": label, "instinct": v_action,
                                      "valence": round(v, 3), "stress": round(cort.level, 3)})
         last_window = window
-        # feed the Interpreter's outcome straight back into dopamine + cortisol
+        # feed the Interpreter's outcome straight back into dopamine + cortisol.
+        # bridge set -> route the reward over the arm_bridge UDP back-channel first (the
+        # split-process deployment: Interpreter and loop on different processes). Transparent.
         if reward is not None:
+            if bridge is not None:
+                AB.send_outcome(reward, bridge.port)
+                reward = bridge.recv_outcome()
             valence.learn(window, reward, lr_scale=cort.learn_rate_scale(reward))
             cort.step(max(0.0, -reward))
         else:
@@ -102,8 +109,18 @@ def main():
     assert val.act(good_win)[0] == "APPROACH", "rewarded gesture not learned as APPROACH"
     assert collision["stress"] > last["stress"] + 0.1, "collision did not raise cortisol stress"
     assert cort.reflex_threshold_scale() < 1.0, "stress did not sharpen the reflex"
+
+    # split-process feedback: same loop with the reward routed over the arm_bridge UDP
+    # back-channel must learn the SAME thing (transport transparent).
+    br = AB.OutcomeBridge(timeout=1.0)
+    bstate = run_episode([good_line] * 30, lib=lib, assume_success=True, bridge=br)
+    br.close()
+    assert bstate["valence"].act(good_win)[0] == "APPROACH", \
+        "reward routed over the UDP back-channel did not close the loop"
+    print(f"bridged: OUTCOME routed over arm_bridge UDP -> "
+          f"value(GRIPPER_CLOSE)={bstate['valence'].valence(good_win):+.2f} (loop still closes)")
     print("self-check OK: gesture -> command, reward raised its value to APPROACH, "
-          "collision -> EMERGENCY_STOP + stress -> sharpened reflex (loop closed)")
+          "collision -> EMERGENCY_STOP + stress -> sharpened reflex, UDP back-channel transparent (loop closed)")
 
 
 if __name__ == "__main__":

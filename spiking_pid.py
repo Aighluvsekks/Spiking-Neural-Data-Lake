@@ -47,15 +47,19 @@ class SpikingPID:
         return self.kp * e + self.ki * self.integral + self.kd * deriv
 
 
-def drive_to(target_deg, steps=60, noise=0.0, spiking=True, seed=0):
-    """Drive arm_sim joint A to target_deg; return the per-step angle-error trace."""
+def drive_to(target_deg, steps=60, noise=0.0, spiking=True, seed=0,
+             perturb_at=None, perturb_deg=25.0):
+    """Drive arm_sim joint A to target_deg; return (error trace, final angle, breach count).
+    If perturb_at is set, an external shove is injected at that step and arm_sim's
+    trajectory-deviation comparator (v0.51) flags the off-path event — the controller then
+    drives the joint back. Controller + edge safety reflex working together."""
     rng = random.Random(seed)
     arm = ArmSim()
     arm.apply("HOME")
     pid = SpikingPID() if spiking else None
     kp, ki, kd, integ, prev = 0.6, 0.05, 0.15, 0.0, 0.0
-    errs = []
-    for _ in range(steps):
+    errs, breaches = [], 0
+    for step in range(steps):
         measured = arm.state()["theta_deg"][0] + (rng.uniform(-noise, noise) if noise else 0.0)
         e = target_deg - measured
         errs.append(target_deg - arm.state()["theta_deg"][0])      # true error (no noise)
@@ -66,8 +70,12 @@ def drive_to(target_deg, steps=60, noise=0.0, spiking=True, seed=0):
             u = kp * e + ki * integ + kd * (e - prev)
             prev = e
         u = max(-15.0, min(15.0, u))                                # per-step slew limit
-        arm.apply(f"JOINT_A_ROTATE({u:+.4f}deg)")
-    return errs, arm.state()["theta_deg"][0]
+        arm.apply(f"JOINT_A_ROTATE({u:+.4f}deg)")                   # commanded pose -> expected_ee
+        if perturb_at is not None and step == perturb_at:
+            arm.perturb(da_deg=perturb_deg)                         # external shove off the path
+            if arm.trajectory_breach():                            # comparator catches it
+                breaches += 1
+    return errs, arm.state()["theta_deg"][0], breaches
 
 
 def _rmse(errs):
@@ -77,11 +85,13 @@ def _rmse(errs):
 def main():
     target = 30.0
 
-    errs_s, final_s = drive_to(target, spiking=True)
-    errs_n, final_n = drive_to(target, spiking=False)
+    errs_s, final_s, _ = drive_to(target, spiking=True)
+    errs_n, final_n, _ = drive_to(target, spiking=False)
     # noise robustness: 4 deg measurement jitter
-    errs_sn, final_sn = drive_to(target, noise=4.0, spiking=True)
-    errs_nn, final_nn = drive_to(target, noise=4.0, spiking=False)
+    errs_sn, final_sn, _ = drive_to(target, noise=4.0, spiking=True)
+    errs_nn, final_nn, _ = drive_to(target, noise=4.0, spiking=False)
+    # perturbation rejection: external shove mid-run, trajectory comparator flags it, PID recovers
+    errs_p, final_p, breaches = drive_to(target, spiking=True, perturb_at=20, perturb_deg=25)
 
     print("=" * 62)
     print("SPIKING PID (NEF population-coded) — drive arm_sim joint A to setpoint")
@@ -91,6 +101,7 @@ def main():
     print(f"numeric PID (base): final {final_n:.2f} deg  | settle RMSE {_rmse(errs_n):.2f}")
     print(f"+4deg noise spk   : final {final_sn:.2f} deg | steady |err| {abs(target-final_sn):.2f}")
     print(f"+4deg noise num   : final {final_nn:.2f} deg | steady |err| {abs(target-final_nn):.2f}")
+    print(f"perturb +25deg@20 : comparator breaches {breaches} -> recovered to {final_p:.2f} deg")
     print("=" * 62)
 
     # ---- self-checks --------------------------------------------------------
@@ -102,8 +113,11 @@ def main():
     assert overshoot < 0.4 * target, f"excessive overshoot: {overshoot:.1f} deg"
     # under measurement noise the population-coded error still settles close
     assert abs(final_sn - target) < 2.0, f"spiking PID not noise-robust: {final_sn}"
+    # trajectory comparator catches the injected shove, and the controller drives back
+    assert breaches >= 1, "trajectory comparator missed the injected perturbation"
+    assert abs(final_p - target) < 2.0, f"controller did not recover from the perturbation: {final_p}"
     print(f"self-check OK: spiking PID -> {final_s:.2f}deg (target {target}), overshoot {overshoot:.1f}deg, "
-          f"noise-robust to {abs(target-final_sn):.2f}deg steady error")
+          f"noise-robust {abs(target-final_sn):.2f}deg, comparator caught perturb ({breaches}) + recovered to {final_p:.2f}deg")
 
 
 if __name__ == "__main__":
