@@ -107,8 +107,6 @@ def main():
     # ---- self-checks --------------------------------------------------------
     assert abs(final_s - target) < 1.0, f"spiking PID did not converge: {final_s}"
     assert abs(errs_s[0]) > abs(errs_s[-1]), "error did not shrink over the run"
-    # bounded overshoot: never past ~1.3x the setpoint
-    assert max(target - e for e in errs_s) <= target * 1.3 + 1e-6 or True  # trace is error, not pos
     overshoot = max(0.0, -min(errs_s))          # error went negative => overshoot past target
     assert overshoot < 0.4 * target, f"excessive overshoot: {overshoot:.1f} deg"
     # under measurement noise the population-coded error still settles close

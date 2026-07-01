@@ -32,12 +32,16 @@ def fk(theta):
     return torch.stack([x, y], dim=1)
 
 
-class SpikingPolicy(nn.Module):
-    """2 spiking LIF layers; readout = time-averaged output membrane = continuous joint deltas."""
+class SpikingNet(nn.Module):
+    """2 spiking LIF layers; readout = time-averaged output membrane = a continuous vector.
+    One architecture, used two ways (only the output scale differs):
+      - reactive Policy Network (scale 0.3): (joints, target_ee) -> bounded joint deltas (rad)
+      - Forward Dynamics world model (scale 2.0): (joints, action) -> next EE in ~[-2,2] (reach)."""
 
-    def __init__(self, in_dim=4, hidden=64, out_dim=2, steps=20, beta=0.9):
+    def __init__(self, in_dim=4, hidden=64, out_dim=2, steps=20, beta=0.9, scale=1.0):
         super().__init__()
         self.steps = steps
+        self.scale = scale
         spike_grad = surrogate.fast_sigmoid()                 # the surrogate gradient
         self.fc1 = nn.Linear(in_dim, hidden)
         self.lif1 = snn.Leaky(beta=beta, spike_grad=spike_grad)
@@ -52,30 +56,7 @@ class SpikingPolicy(nn.Module):
             spk1, mem1 = self.lif1(self.fc1(x), mem1)
             _, mem2 = self.lif2(self.fc2(spk1), mem2)
             acc = acc + mem2
-        return 0.3 * torch.tanh(acc / self.steps)              # bounded joint deltas (rad)
-
-
-class ForwardDynamics(nn.Module):
-    """World-model half: predict the NEXT end-effector position from (current joints, action
-    deltas). Learned from arm_sim transitions, then used to PLAN actions (model-based control)."""
-
-    def __init__(self, in_dim=4, hidden=64, out_dim=2, steps=20, beta=0.9):
-        super().__init__()
-        self.steps = steps
-        spike_grad = surrogate.fast_sigmoid()
-        self.fc1 = nn.Linear(in_dim, hidden)
-        self.lif1 = snn.Leaky(beta=beta, spike_grad=spike_grad)
-        self.fc2 = nn.Linear(hidden, out_dim)
-        self.lif2 = snn.Leaky(beta=beta, spike_grad=spike_grad, reset_mechanism="none")
-
-    def forward(self, x):
-        mem1, mem2 = self.lif1.init_leaky(), self.lif2.init_leaky()
-        acc = 0.0
-        for _ in range(self.steps):
-            spk1, mem1 = self.lif1(self.fc1(x), mem1)
-            _, mem2 = self.lif2(self.fc2(spk1), mem2)
-            acc = acc + mem2
-        return 2.0 * torch.tanh(acc / self.steps)              # EE lies in ~[-2,2] (reach = L1+L2)
+        return self.scale * torch.tanh(acc / self.steps)       # bounded output vector
 
 
 def sample(batch, gen):
@@ -89,7 +70,7 @@ def sample(batch, gen):
 
 def train_forward_model(gen, iters=400):
     """Learn next-EE = f(theta, delta) from arm_sim transitions (FK is the ground truth)."""
-    fm = ForwardDynamics()
+    fm = SpikingNet(scale=2.0)          # world model: next EE in ~[-2,2] (reach = L1+L2)
     opt = torch.optim.Adam(fm.parameters(), lr=2e-3)
     lossf = nn.MSELoss()
     first = None
@@ -128,7 +109,7 @@ def model_based_reach(fm, gen, plan_steps=25):
 def main():
     torch.manual_seed(0)
     gen = torch.Generator().manual_seed(0)
-    net = SpikingPolicy()
+    net = SpikingNet(scale=0.3)         # reactive policy: bounded joint deltas (rad)
     opt = torch.optim.Adam(net.parameters(), lr=2e-3)
     lossf = nn.MSELoss()
 

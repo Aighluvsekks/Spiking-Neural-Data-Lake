@@ -59,14 +59,6 @@ class _SpikingNet(nn.Module):
         return self.scale * torch.tanh(acc / STEPS)
 
 
-def Policy():       # (theta, target_ee) -> action delta
-    return _SpikingNet(4, 2, scale=1.2)
-
-
-def WorldModel():   # (theta, delta) -> predicted joint change dtheta
-    return _SpikingNet(4, 2, scale=1.2)
-
-
 def start_and_target(batch, gen):
     theta = (torch.rand(batch, 2, generator=gen) * 2 - 1)
     goal = theta + (torch.rand(batch, 2, generator=gen) * 2 - 1) * 0.6   # reachable in H steps
@@ -116,7 +108,8 @@ def improve_policy(policy, wm, opt, gen, batch=128, iters=8):
 def main():
     torch.manual_seed(0)
     gen = torch.Generator().manual_seed(0)
-    policy, wm = Policy(), WorldModel()
+    policy = _SpikingNet(4, 2, scale=1.2)   # (theta, target_ee) -> action delta
+    wm = _SpikingNet(4, 2, scale=1.2)       # (theta, delta)     -> predicted joint change dtheta
     p_opt = torch.optim.Adam(policy.parameters(), lr=3e-3)
     w_opt = torch.optim.Adam(wm.parameters(), lr=3e-3)
 
