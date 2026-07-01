@@ -1,0 +1,27 @@
+========================================================================
+PHASE 1 ACCEPTED - ON TO PHASE 2
+========================================================================
+
+Your labeled per-gesture captures (HAND_APPROACH, HAND_RETREAT, IDLE) were
+exactly right: numbers-only, one gesture per file, clean. They drove 95% live
+recognition, and the whole loop - recognize -> command -> arm + contact reflex
+- is built and tested on replay of your data.
+
+Phase 1 (clean, labeled data) is DONE. Nothing more needed there.
+
+Next is going live on the real hardware. The full brief - 6 items, blocking
+ones first, matched to your 2-channel ultrasonic + IR setup - is in
+arduino_requirements.txt.
+
+Short version of what's next:
+  1. Run the live loop on the real ESP32 + arm
+     (python live_arm.py --serial COM8).                    (blocking)
+  2. Actuator path - how our commands move your real servos. (blocking)
+  3. Real safety numbers - contact distance, joint limits
+     (ours are placeholders).                               (safety)
+  4. IR-channel calibration (hand-present vs absent capture) - upgrade.
+  5. A grasp success/force signal for real learning         - optional.
+  6. Confirm Kelvin; add more gestures if the arm needs them - quick.
+
+Read arduino_requirements.txt for the details, acceptance criteria, and
+exactly what to hand back. Thanks again - the data phase went great.
