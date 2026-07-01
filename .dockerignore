@@ -1,7 +1,10 @@
 .git/
 .github/
+.venv*/
 .venv/
 .venv-lake/
+.venv-arm/
+.venv-nmnist/
 __pycache__/
 *.pyc
 data/

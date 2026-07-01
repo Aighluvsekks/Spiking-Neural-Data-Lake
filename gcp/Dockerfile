@@ -3,8 +3,12 @@
 # is impractical on CPU finishes here.
 FROM nvidia/cuda:12.8.0-runtime-ubuntu22.04
 
+# bindsnet imports cv2 (opencv) on load -> needs these X11/GL runtime libs, which the minimal
+# CUDA runtime image lacks (else: ImportError libxcb.so.1 / libGL.so.1 at startup).
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        python3 python3-pip git && rm -rf /var/lib/apt/lists/*
+        python3 python3-pip git \
+        libgl1 libglib2.0-0 libxcb1 libxext6 libsm6 libxrender1 \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 COPY . /app
