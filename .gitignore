@@ -17,6 +17,7 @@ env/
 
 # Data + model artifacts (not committed — fetched/trained locally)
 data/
+captures/          # live gesture recordings from record_and_run.ps1
 *.pt
 *.pth
 *.npz
