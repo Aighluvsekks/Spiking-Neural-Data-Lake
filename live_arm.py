@@ -49,6 +49,19 @@ def serial_samples(port, baud=115200, reconnect=True):
             backoff = min(backoff * 2, 5.0)       # cap backoff at 5s
 
 
+def _serial_samples_from(ser):
+    """(d, ir) read from an ALREADY-OPEN serial handle — used when sensor-out and command-in
+    share ONE UART (live_arm --serial COMx --actuate COMx opens the port once, reads + writes
+    on the same handle). readline() returns b'' on timeout; keep waiting for the next line."""
+    while True:
+        raw = ser.readline()
+        if not raw:
+            continue
+        v = S.parse_line(raw.decode("utf-8", "ignore"))
+        if v and len(v) >= 2:
+            yield v[0], v[1]
+
+
 def replay_samples(paths):
     for p in paths:
         for d, t in load_csv(p):
@@ -84,24 +97,36 @@ def run(samples, arm, interp, emit, stride=STRIDE):
 
 def main():
     args = sys.argv[1:]
-    if "--actuate" in args:                               # drive the REAL arm over serial (safety-gated)
-        from serial_arm import SerialArm                  # lazy: keeps the default path pyserial-free
-        arm = SerialArm(args[args.index("--actuate") + 1])
-    else:
-        arm = ArmSim()                                    # stdlib backend (pybullet if installed)
     interp = Interpreter(commands=SENSOR_COMMANDS)
 
     def emit(d):
         print(__import__("json").dumps(d)); sys.stdout.flush()
 
     stride = int(args[args.index("--stride") + 1]) if "--stride" in args else STRIDE
+    actuate = args[args.index("--actuate") + 1] if "--actuate" in args else None
 
     if "--serial" in args:
         port = args[args.index("--serial") + 1]
         baud = int(args[args.index("--baud") + 1]) if "--baud" in args else 115200
-        sys.stderr.write(f"live: {port}@{baud} stride={stride} -> recognize -> Interpreter -> arm\n")
-        run(serial_samples(port, baud), arm, interp, emit, stride)   # until interrupted
+        if actuate:
+            import serial_arm
+            serial_arm.assert_calibrated()                # refuse real servos w/ placeholder limits
+            if actuate == port:                           # one UART: share ONE handle (read + write)
+                import serial
+                ser = serial.Serial(port, baud, timeout=1)
+                arm = serial_arm.SerialArm(writer=ser)
+                samples = _serial_samples_from(ser)
+            else:                                         # command on a separate port
+                arm = serial_arm.SerialArm(actuate, baud)
+                samples = serial_samples(port, baud)
+        else:
+            arm = ArmSim()
+            samples = serial_samples(port, baud)
+        sys.stderr.write(f"live: sensor={port}@{baud} actuate={actuate or 'sim'} stride={stride}\n")
+        run(samples, arm, interp, emit, stride)           # until interrupted
         return
+
+    arm = ArmSim()                                        # stdlib backend (pybullet if installed)
     if "--csv" in args:
         run(replay_samples([args[args.index("--csv") + 1]]), arm, interp, emit, stride)
         return
@@ -139,8 +164,36 @@ def main():
     assert stats_a.get("GRIPPER_CLOSE", 0) >= 1, "approach did not drive GRIPPER_CLOSE"
     assert stats_r.get("GRIPPER_OPEN", 0) >= 1, "retreat did not drive GRIPPER_OPEN"
     assert stats_a.get("reflex", 0) >= 1, "contact never tripped the reflex STOP"
-    print("self-check OK: approach->GRIPPER_CLOSE, retreat->GRIPPER_OPEN, contact->reflex STOP "
-          "— sensor recognized, Interpreter mapped, arm moved (loop closed)")
+
+    # duplex smoke test: sensor-read + command-write share ONE serial handle (no hardware).
+    from serial_arm import SerialArm
+    lines = ([f"{0.9 - 0.11 * i}, 295.0\n".encode() for i in range(W)] * 3) + [b"0.02, 298.0\n"]
+
+    class _FakeDuplex:
+        def __init__(self, ls): self._it = iter(ls); self.sent = []
+        def readline(self): return next(self._it, b"")       # b"" at end of the canned stream
+        def write(self, b): self.sent.append(b.decode("ascii").strip())
+        def flush(self): pass
+        def close(self): pass
+
+    fd = _FakeDuplex(lines)
+    darm = SerialArm(writer=fd)                              # SerialArm as the arm, writing to fd
+
+    def _bounded():                                          # _serial_samples_from, but stops at EOF
+        while True:
+            raw = fd.readline()
+            if not raw:
+                return
+            v = S.parse_line(raw.decode("utf-8", "ignore"))
+            if v and len(v) >= 2:
+                yield v[0], v[1]
+
+    run(_bounded(), darm, interp, quiet)                     # read + recognize + write on one handle
+    assert "GRIPPER_CLOSE" in fd.sent, f"duplex: approach did not send GRIPPER_CLOSE ({fd.sent})"
+    assert "EMERGENCY_STOP" in fd.sent, "duplex: contact did not send EMERGENCY_STOP over serial"
+
+    print("self-check OK: approach->GRIPPER_CLOSE, retreat->GRIPPER_OPEN, contact->reflex STOP, "
+          "one-UART duplex read+write — sensor recognized, Interpreter mapped, arm moved (loop closed)")
 
 
 if __name__ == "__main__":

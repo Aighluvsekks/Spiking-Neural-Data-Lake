@@ -22,6 +22,17 @@ from arm_sim import ArmSim
 import arm_config
 
 
+def assert_calibrated(allow_uncalibrated=False):
+    """Guard every real-servo entry point: raise unless the sim's placeholder safety limits
+    have been replaced with the rig's real values (arm_config.SAFETY_CALIBRATED)."""
+    if not (arm_config.SAFETY_CALIBRATED or allow_uncalibrated):
+        raise RuntimeError(
+            "SerialArm refuses to drive real servos with placeholder safety limits. "
+            "Set arm_config.SAFETY_CALIBRATED=True after replacing CONTACT/joint limits "
+            "with your rig's real values (docs/arduino_requirements.md #3), or pass a "
+            "fake writer= for a bench/echo test.")
+
+
 class SerialArm:
     """Command sink: mirrors ArmSim (for state()/gripper logging) AND writes each command line
     to the ESP32. writer = an object with .write(bytes)/.flush()/.close() — a real serial.Serial
@@ -29,12 +40,7 @@ class SerialArm:
 
     def __init__(self, port=None, baud=115200, writer=None, allow_uncalibrated=False):
         if writer is None:
-            if not (arm_config.SAFETY_CALIBRATED or allow_uncalibrated):
-                raise RuntimeError(
-                    "SerialArm refuses to drive real servos with placeholder safety limits. "
-                    "Set arm_config.SAFETY_CALIBRATED=True after replacing CONTACT/joint limits "
-                    "with your rig's real values (docs/arduino_requirements.md #3), or pass a "
-                    "fake writer= for a bench/echo test.")
+            assert_calibrated(allow_uncalibrated)
             import serial                        # pyserial — only needed on real hardware
             writer = serial.Serial(port, baud, timeout=1)
         self.w = writer
