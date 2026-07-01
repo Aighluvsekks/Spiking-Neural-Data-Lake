@@ -71,7 +71,7 @@ For the literature ~95% run (6400 neurons). RTX 50-series (Blackwell) needs CUDA
 ```bash
 python -m venv .venv
 .venv/bin/pip install --index-url https://download.pytorch.org/whl/cu128 torch torchvision
-.venv/bin/pip install snntorch bindsnet numpy
+.venv/bin/pip install snntorch==1.0.0 bindsnet numpy
 NORD_M=1600 NORD_INH=60 NORD_THETA_PLUS=0.20 .venv/bin/python eth_mnist_bindsnet.py --gpu
 # CPU fallback works automatically (slower); 400/20k ~ 86% in minutes
 ```
