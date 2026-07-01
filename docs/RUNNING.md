@@ -53,7 +53,8 @@ Bronze → Silver → Gold over Parquet, the data path that scales to the cloud:
 ```bash
 python -m venv .venv-lake
 .venv-lake/bin/pip install polars pyarrow          # Windows: .venv-lake\Scripts\pip
-.venv-lake/bin/python lakehouse/medallion.py
+# run from repo root — medallion imports spike_telemetry_hub/data_quality from root, so root must be on PYTHONPATH
+PYTHONPATH=. .venv-lake/bin/python lakehouse/medallion.py    # Windows: $env:PYTHONPATH="."; .venv-lake\Scripts\python lakehouse\medallion.py
 # writes lakehouse/data/{bronze,silver,gold}.parquet + prints ICR, synchrony, SQL query
 ```
 `lakehouse/data/bronze.parquet` is exactly what you upload to the cloud Bronze (below).
