@@ -84,7 +84,11 @@ def run(samples, arm, interp, emit, stride=STRIDE):
 
 def main():
     args = sys.argv[1:]
-    arm = ArmSim()                                        # stdlib backend (pybullet if installed)
+    if "--actuate" in args:                               # drive the REAL arm over serial (safety-gated)
+        from serial_arm import SerialArm                  # lazy: keeps the default path pyserial-free
+        arm = SerialArm(args[args.index("--actuate") + 1])
+    else:
+        arm = ArmSim()                                    # stdlib backend (pybullet if installed)
     interp = Interpreter(commands=SENSOR_COMMANDS)
 
     def emit(d):

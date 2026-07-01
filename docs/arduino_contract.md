@@ -63,6 +63,28 @@ loop emits the neuromodulator state per event:
 Mix `OUTCOME` lines and signal lines on the same stream. (Serial reads outcomes the same way;
 the Interpreter or a small bridge injects them onto the loop's input.)
 
+## Command channel (loop → Arduino, the Phase-2 actuator path)
+The sensor stream above is Arduino → loop. The **actuator path is the reverse**: the loop sends
+one **command per line** back to the ESP32, which drives the servos (`sketches/command_arm.ino`).
+Same transport — ASCII, `\n`-terminated, `115200 8N1`, one command per line. Sensor-out and
+command-in share the one UART.
+
+Command vocabulary (exactly what `interpreter.py` emits):
+```
+GRIPPER_CLOSE
+GRIPPER_OPEN
+HOLD                      # no-op (hold pose)
+EMERGENCY_STOP            # fail-safe — the sketch detaches servos FIRST
+JOINT_A_ROTATE(+15deg)    # signed integer degrees, relative
+JOINT_B_ROTATE(-10deg)
+HOME
+RETRACT_ALL
+```
+Driven by `python live_arm.py --serial COMx --actuate COMx` (`serial_arm.SerialArm`). SerialArm
+refuses to open a real port until `arm_config.SAFETY_CALIBRATED = True` — set that only after the
+placeholder limits are replaced with your rig's real values. Bench-test with the sketch's
+`ECHO_ONLY = true` first (servos unpowered) to confirm the right command arrives.
+
 ## Throughput
 One matched command per window. Window rate = (Arduino line rate) ÷ `W`. Match latency is
 dominated by the Van Rossum gate + (hybrid) the spiking forward pass — sub-millisecond per

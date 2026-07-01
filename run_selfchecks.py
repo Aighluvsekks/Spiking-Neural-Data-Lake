@@ -28,7 +28,7 @@ MODULES = [
     "nmnist_ingest", "signal_loop", "learned_matcher", "reflex", "valence_stdp", "cortisol",
     "interpreter", "closed_loop", "make_sensor_dataset", "sensor_demo",
     "srm_neuron", "stats_bounds", "arm_sim", "arm_config", "population_encoding",
-    "sensor_csv_ingest", "gesture_recognition", "live_arm", "arm_bridge", "spiking_pid",
+    "sensor_csv_ingest", "gesture_recognition", "live_arm", "serial_arm", "arm_bridge", "spiking_pid",
     "demo", "make_results_plot",
 ]
 

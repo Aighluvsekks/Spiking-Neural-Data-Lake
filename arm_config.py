@@ -25,6 +25,12 @@ TRAJ_DEV_MAX = 0.15    # end-effector deviation (m) from the intended pose that 
                        # an external perturbation knocks the arm off its commanded path).
                        # ponytail: tied to arm reach (l1+l2=2m); re-tune per real rig/gripper.
 
+# ---- real-hardware safety gate -------------------------------------------------
+# CONTACT / joint-limit / reflex values here are PLACEHOLDERS tuned to the sim, NOT your rig.
+# serial_arm.SerialArm refuses to drive real servos until this is True. Flip it ONLY after
+# replacing them with your arm's measured limits (docs/arduino_requirements.md #3).
+SAFETY_CALIBRATED = False
+
 # ---- windowing -----------------------------------------------------------------
 W = 8                  # samples per recognition window
 STRIDE = W             # W = non-overlapping; < W = sliding (lower live latency)
