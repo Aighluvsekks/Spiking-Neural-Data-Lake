@@ -32,6 +32,15 @@ python live_arm.py        # full closed loop on the builder's REAL captured gest
 python gesture_recognition.py   # order-aware recognition on the real data, with the confusion table
 ```
 
+**Install with every addon (optional):** pull every optional dependency into one env + the
+`snn-demo` command:
+```bash
+pip install ".[all]"       # or pick a path: .[arm]  .[lake]  .[gpu]  .[nmnist]
+snn-demo
+```
+The multi-module loop stays clone-and-run (above); `[all]` just installs every dependency so
+any path works in one environment.
+
 Run the **full zero-dep self-check suite** (exactly what CI runs — the 32 stdlib modules; the
 MNIST/GPU models are excluded as they need PyTorch). The list lives in
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) and [docs/RUNNING.md](docs/RUNNING.md):

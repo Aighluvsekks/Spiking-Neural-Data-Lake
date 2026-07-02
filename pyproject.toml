@@ -1,6 +1,8 @@
-# Installable packaging for the flagship one-command demo (`snn-demo`). The full arm-loop + lake
-# stay clone-and-run (pure-stdlib core) by design — see README. Optional dependency groups mirror
-# requirements.txt so `pip install .[arm]` / `.[lake]` / `.[gpu]` pull only what a path needs.
+# Installable packaging. Core is pure-stdlib (empty `dependencies`); optional groups mirror
+# requirements.txt. `pip install ".[all]"` installs EVERY addon (arm+lake+gpu+nmnist) in one env
+# plus the `snn-demo` command. The full multi-module arm-loop + lake stay clone-and-run: their
+# generic module names (e.g. `reflex`, `interpreter`) would collide as flat top-level installs; a
+# namespaced `src/` package is the clean way to ship them — intentionally not adopted (see README).
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
@@ -26,12 +28,13 @@ arm = ["pyserial"]                                                       # live_
 lake = ["polars", "pyarrow", "deltalake"]                               # lakehouse/medallion + delta_demo
 gpu = ["torch", "torchvision", "snntorch==1.0.0", "bindsnet", "numpy"]   # research/ GPU training
 nmnist = ["tonic"]                                                       # research/nmnist_ingest real data
+all = ["spiking-neural-data-lake[arm,lake,gpu,nmnist]"]                   # every addon in one install
 
 [project.scripts]
-snn-demo = "demo:main"
+snn-demo = "demo:main"        # self-contained one-file demo (the full loop runs clone-and-run)
 
 [project.urls]
 Homepage = "https://github.com/Aighluvsekks/Spiking-Neural-Data-Lake"
 
 [tool.hatch.build.targets.wheel]
-only-include = ["demo.py"]
+only-include = ["demo.py"]   # only the self-contained demo installs cleanly; full loop is clone-and-run
