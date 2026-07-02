@@ -65,7 +65,7 @@ the Interpreter or a small bridge injects them onto the loop's input.)
 
 ## Command channel (loop → Arduino, the Phase-2 actuator path)
 The sensor stream above is Arduino → loop. The **actuator path is the reverse**: the loop sends
-one **command per line** back to the ESP32, which drives the servos (`sketches/command_arm.ino`).
+one **command per line** back to the ESP32, which drives the servos (`deploy/command_arm.ino`).
 Same transport — ASCII, `\n`-terminated, `115200 8N1`, one command per line. Sensor-out and
 command-in share the one UART.
 

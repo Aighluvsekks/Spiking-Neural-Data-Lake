@@ -43,7 +43,7 @@ and chosen to **not collide** with the sensor pins.
 1. **Arduino IDE** → add ESP32 board support (Boards Manager → "esp32"). Install libraries:
    `Adafruit MLX90614` and `ESP32Servo` (Library Manager).
 2. Flash the **merged sketch** below (one sketch does sensor-out **and** command-in on the one
-   UART). It combines `sensor_fixed.ino` + [`sketches/command_arm.ino`](../sketches/command_arm.ino).
+   UART). It combines `sensor_fixed.ino` + [`deploy/command_arm.ino`](../deploy/command_arm.ino).
 3. Keep `ECHO_ONLY = true` for first power-on (servos won't move; the board just ACKs commands).
 
 ```cpp

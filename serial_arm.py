@@ -4,7 +4,7 @@ v0.60 — real-arm actuator sink. The Phase-2 command-OUT path.
 live_arm.py already does: sensor -> recognize -> Interpreter -> command -> arm.apply(cmd).
 Until now `arm` was ArmSim (a simulation). SerialArm is a DROP-IN with the same surface
 live_arm uses off ArmSim — .apply(cmd), .state(), .gripper — but each command line also goes
-out over serial to the ESP32 servo sketch (sketches/command_arm.ino), moving the REAL arm.
+out over serial to the ESP32 servo sketch (deploy/command_arm.ino), moving the REAL arm.
 See docs/arduino_contract.md ("Command channel").
 
 SAFETY: driving real servos with the PLACEHOLDER limits in arm_config (CONTACT, joint limits,
