@@ -24,7 +24,7 @@ Run:  python paradigm_b_matcher.py   (builds telemetry via the v0.12 hub first)
 """
 import os
 from collections import deque
-from spike_telemetry_hub import SpikeTelemetryHub, disk_query, synth
+from snn_data_lake.spike_telemetry_hub import SpikeTelemetryHub, disk_query, synth
 
 
 def compile_query(channels, window, k):

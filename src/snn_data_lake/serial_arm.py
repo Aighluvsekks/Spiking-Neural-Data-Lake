@@ -18,8 +18,8 @@ pure-stdlib and run in CI.
 
   python serial_arm.py        # self-check (fake serial, no hardware, no pyserial)
 """
-from arm_sim import ArmSim
-import arm_config
+from snn_data_lake.arm_sim import ArmSim
+from snn_data_lake import arm_config
 
 
 def assert_calibrated(allow_uncalibrated=False):

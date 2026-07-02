@@ -13,10 +13,10 @@ captures (same format) and nothing else changes.
 
   python sensor_demo.py
 """
-import signal_loop as S
-from reflex import Reflex
-from interpreter import Interpreter
-import make_sensor_dataset as mk
+from snn_data_lake import signal_loop as S
+from snn_data_lake.reflex import Reflex
+from snn_data_lake.interpreter import Interpreter
+from snn_data_lake import make_sensor_dataset as mk
 
 # his gestures -> commands appropriate to a proximity/temperature arm (illustrative)
 SENSOR_COMMANDS = {

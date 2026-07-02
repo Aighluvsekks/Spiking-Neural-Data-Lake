@@ -9,7 +9,7 @@ import os
 import sys
 
 from google.cloud import pubsub_v1
-from spike_telemetry_hub import synth   # synthetic spike source (this repo)
+from snn_data_lake.spike_telemetry_hub import synth   # synthetic spike source (this repo)
 
 
 def main(project, topic="spike-telemetry"):

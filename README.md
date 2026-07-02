@@ -21,39 +21,35 @@ PyTorch + snnTorch / BindsNET.
 
 ## Clone & run
 
-Needs only **Python 3.11+** — no install, no hardware.
+Python 3.11+. Install the package (editable) — the core pulls **no runtime deps**:
 
 ```bash
 git clone https://github.com/Aighluvsekks/Spiking-Neural-Data-Lake.git
 cd Spiking-Neural-Data-Lake
+pip install -e .                 # editable install; core = zero runtime deps
 
-python demo.py            # the whole loop in one file: sensor -> recognize -> command -> arm + reflex
-python live_arm.py        # full closed loop on the builder's REAL captured gestures (95% recognition)
-python gesture_recognition.py   # order-aware recognition on the real data, with the confusion table
+snn-demo                                       # whole loop in one file: sensor -> recognize -> command -> arm + reflex
+snn-arm                                        # live loop on the builder's REAL captured gestures (95%)
+snn-loop                                       # full closed loop: gesture -> command -> reward -> learn
+python -m snn_data_lake.gesture_recognition    # order-aware recognition + confusion table
 ```
 
-**Install with every addon (optional):** pull every optional dependency into one env + the
-`snn-demo` command:
-```bash
-pip install ".[all]"       # or pick a path: .[arm]  .[lake]  .[gpu]  .[nmnist]
-snn-demo
-```
-The multi-module loop stays clone-and-run (above); `[all]` just installs every dependency so
-any path works in one environment.
+**Every addon:** `pip install -e ".[all]"` adds every optional dependency (arm+lake+gpu+nmnist)
+in one env; or pick a path — `.[arm]` `.[lake]` `.[gpu]` `.[nmnist]`.
 
 Run the **full zero-dep self-check suite** (exactly what CI runs — the 32 stdlib modules; the
 MNIST/GPU models are excluded as they need PyTorch). The list lives in
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) and [docs/RUNNING.md](docs/RUNNING.md):
 ```bash
 python research/spiking_storage_prototype.py   # storage
-python paradigm_b_engine.py           # in-storage order-aware query
-python closed_loop.py                 # the full brain-stack loop (encode→match→reward→learn)
+python -m snn_data_lake.paradigm_b_engine           # in-storage order-aware query
+python -m snn_data_lake.closed_loop                 # the full brain-stack loop (encode→match→reward→learn)
 # ...full list (32) in docs/RUNNING.md §1
 ```
 
 Optional extras (own venv each; see [docs/RUNNING.md](docs/RUNNING.md)): `polars` for the
 Medallion lakehouse, `tonic` for real N-MNIST, `torch`+`snntorch`+`bindsnet` for the MNIST/GPU
-models, `pybullet` for arm physics, `pyserial` for the live ESP32 (`python live_arm.py --serial COM8`).
+models, `pybullet` for arm physics, `pyserial` for the live ESP32 (`python -m snn_data_lake.live_arm --serial COM8`).
 
 ---
 
@@ -92,8 +88,8 @@ The three data-system paradigms (after an external architectural assessment), al
 
 | Paradigm | Capability | Implementation | Status |
 |----------|------------|----------------|--------|
-| **A** — telemetry hub | store + query multi-channel spike trains as sparse events | `spike_telemetry_hub.py` | ✅ complete (v0.12) |
-| **B** — in-storage search | compile a query into an SNN, stream stored spikes, emit only matches (coincidence **and** temporal sequence) | `paradigm_b_engine.py` (+ `research/paradigm_b_genn.py` GPU) | ✅ complete (v0.20) |
+| **A** — telemetry hub | store + query multi-channel spike trains as sparse events | `snn_data_lake/spike_telemetry_hub.py` | ✅ complete (v0.12) |
+| **B** — in-storage search | compile a query into an SNN, stream stored spikes, emit only matches (coincidence **and** temporal sequence) | `snn_data_lake/paradigm_b_engine.py` (+ `research/paradigm_b_genn.py` GPU) | ✅ complete (v0.20) |
 | **C** — relational embeddings | a knowledge graph in spike timing; link prediction, anomaly scoring, full relation algebra (symmetric / inverse / composition) | `research/spike_knowledge_graph.py` (TransE), `research/spike_knowledge_graph_rotate.py` (RotatE), `research/spike_kg_relations.py` (algebra) | ✅ complete (v0.21–25) |
 
 Trainable models (learn the representations):
@@ -131,14 +127,14 @@ collaborator hardware work; its contents are merged here.)
 spiking-neural-data-lake/
   research/spiking_storage_prototype.py     associative memory (factored O(P·k) storage)
   research/test_prototype.py                capacity / noise stress sweeps
-  snn_classifier.py                supervised spiking classifier (+ `sweep` mode)
+  snn_data_lake/snn_classifier.py                supervised spiking classifier (+ `sweep` mode)
   research/snn_moe_classifier.py            spike-driven MoE routing
   research/temporal_coding_storage.py       time-to-first-spike (TTFS) latency coding
-  spike_telemetry_hub.py           Paradigm A — sparse .spk store + windowed queries
-  paradigm_b_matcher.py            Paradigm B — coincidence matcher (CPU, verified)
-  paradigm_b_engine.py             Paradigm B — coincidence + temporal-sequence engine
+  snn_data_lake/spike_telemetry_hub.py           Paradigm A — sparse .spk store + windowed queries
+  snn_data_lake/paradigm_b_matcher.py            Paradigm B — coincidence matcher (CPU, verified)
+  snn_data_lake/paradigm_b_engine.py             Paradigm B — coincidence + temporal-sequence engine
   research/paradigm_b_genn.py               Paradigm B — GeNN GPU port
-  spike_preprocessing.py           deterministic encode + precompute cache + Van Rossum
+  snn_data_lake/spike_preprocessing.py           deterministic encode + precompute cache + Van Rossum
   research/spike_knowledge_graph.py         Paradigm C — SpikE relational embeddings (TransE)
   research/spike_knowledge_graph_rotate.py  Paradigm C — RotatE (cyclic relations, phase coding)
   research/snn_mnist_stdp.py                unsupervised STDP on MNIST (rate, snnTorch)
@@ -151,7 +147,7 @@ spiking-neural-data-lake/
   research/nmnist_ingest.py                 N-MNIST event-camera ingestion (Tonic opt; synth fallback)
   research/make_results_plot.py             regenerates assets/results.svg
   docs/RUNNING.md                  local + cloud runbook
-  lakehouse/medallion.py           Medallion Bronze/Silver/Gold PoC (Parquet + polars)
+  snn_data_lake/lakehouse/medallion.py           Medallion Bronze/Silver/Gold PoC (Parquet + polars)
   infra/                           Terraform — GCP-native lakehouse infrastructure
   gcp/                             Dataproc/Vertex scaffold + deploy guide (gcp/README.md)
   research/                        source research briefs (the designs)
@@ -168,10 +164,10 @@ spiking-neural-data-lake/
 ```bash
 # Pure-stdlib — no install needed (these run in CI):
 python research/spiking_storage_prototype.py      # associative memory + savings
-python snn_classifier.py                 # supervised spiking classifier
+python -m snn_data_lake.snn_classifier                 # supervised spiking classifier
 python research/temporal_coding_storage.py        # TTFS latency coding (83× fewer ops)
-python spike_telemetry_hub.py            # Paradigm A — sparse spike-train store
-python paradigm_b_engine.py              # Paradigm B — coincidence + sequence queries
+python -m snn_data_lake.spike_telemetry_hub            # Paradigm A — sparse spike-train store
+python -m snn_data_lake.paradigm_b_engine              # Paradigm B — coincidence + sequence queries
 python research/spike_knowledge_graph.py          # Paradigm C — SpikE relational embeddings
 python research/spike_knowledge_graph_rotate.py   # Paradigm C — RotatE cyclic relations
 python research/spike_kg_relations.py             # Paradigm C — relation algebra (sym/inverse/composition)
@@ -237,7 +233,7 @@ Chart the scaling law (400 → 1600 → 6400) with `bash gpu_scaling_sweep.sh` (
 measure the spike-based data-storage thesis. All three assessment paradigms (A/B/C) have
 complete implementations.
 
-**Lakehouse path (v0.26):** `lakehouse/medallion.py` follows the *single-node-feasible*
+**Lakehouse path (v0.26):** `snn_data_lake/lakehouse/medallion.py` follows the *single-node-feasible*
 slice of a production "spiking neural data lakehouse" roadmap — the **Medallion**
 topology (Bronze raw events → Silver binned/aligned → Gold features: firing rate,
 population synchrony, inverse-compression ratio) over **columnar Parquet**, queried with

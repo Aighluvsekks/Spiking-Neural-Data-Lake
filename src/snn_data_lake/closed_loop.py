@@ -11,10 +11,10 @@ into dopamine + cortisol every tick. This is the schematic's full reaction loop 
 Run:
   python closed_loop.py        # scripted episode + self-check
 """
-import signal_loop as S
-from reflex import Reflex
-from interpreter import Interpreter
-import arm_bridge as AB
+from snn_data_lake import signal_loop as S
+from snn_data_lake.reflex import Reflex
+from snn_data_lake.interpreter import Interpreter
+from snn_data_lake import arm_bridge as AB
 
 
 def run_episode(signals, lib=None, assume_success=True, base_threshold=0.10, trace=None,

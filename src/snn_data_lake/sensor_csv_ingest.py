@@ -18,7 +18,7 @@ import os
 import sys
 import random
 
-import signal_loop as S
+from snn_data_lake import signal_loop as S
 
 CSV = os.path.join("robot arm", "serial_sensor_log.csv")
 WINDOW = 8                       # 8 ticks x 2 channels -> 16 features (resized to N)

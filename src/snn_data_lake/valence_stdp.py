@@ -27,7 +27,7 @@ import os
 import math
 import random
 
-from spike_preprocessing import encode_latency, N
+from snn_data_lake.spike_preprocessing import encode_latency, N
 
 LR = float(os.environ.get("VAL_LR", 0.05))
 THETA = float(os.environ.get("VAL_THETA", 0.30))   # |valence| above this -> act

@@ -25,8 +25,8 @@ Run (needs polars):  ../.venv-lake/Scripts/python lakehouse/medallion.py
 import os
 import gzip
 import polars as pl
-from spike_telemetry_hub import synth   # raw spike-telemetry source (this repo)
-import data_quality                     # v0.43 gates: block promotion to Gold on bad data
+from snn_data_lake.spike_telemetry_hub import synth   # raw spike-telemetry source (this repo)
+from snn_data_lake import data_quality                     # v0.43 gates: block promotion to Gold on bad data
 
 LAKE = os.path.join("lakehouse", "data")   # Parquet output (gitignored)
 

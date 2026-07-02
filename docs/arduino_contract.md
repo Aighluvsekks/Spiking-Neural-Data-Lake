@@ -1,8 +1,8 @@
 # Arduino ↔ Signal-Loop Wire Contract
 
 The contract between the **Arduino** box (signal source) and the **spike encoding →
-data lake → match** part (`signal_loop.py`). Anything that honors this contract works;
-`signal_loop.py` is agnostic to what produces the bytes.
+data lake → match** part (`snn_data_lake/signal_loop.py`). Anything that honors this contract works;
+`snn_data_lake/signal_loop.py` is agnostic to what produces the bytes.
 
 ## Transport
 - **USB serial**, `115200` baud, `8N1` (8 data bits, no parity, 1 stop bit).
@@ -25,7 +25,7 @@ Each line **is** one window: send exactly `N=64` floats per line. The Arduino do
 windowing/feature extraction. Lines with ≠64 values are truncated/zero-padded to 64.
 
 ```
-python signal_loop.py --serial COM3
+python -m snn_data_lake.signal_loop --serial COM3
 ```
 
 ### Windowed (`--window W`)
@@ -34,7 +34,7 @@ flattens them row-major (`C×W`), and resizes to `N=64` → one window. Use when
 streams raw sensors and you want the loop to do the windowing.
 
 ```
-python signal_loop.py --serial COM3 --window 8     # 8 timesteps × C channels -> 1 window
+python -m snn_data_lake.signal_loop --serial COM3 --window 8     # 8 timesteps × C channels -> 1 window
 ```
 `C×W` should be ≈ 64 (e.g. 8 channels × 8 steps). Larger → truncated, smaller → zero-padded.
 
@@ -69,7 +69,7 @@ one **command per line** back to the ESP32, which drives the servos (`deploy/com
 Same transport — ASCII, `\n`-terminated, `115200 8N1`, one command per line. Sensor-out and
 command-in share the one UART.
 
-Command vocabulary (exactly what `interpreter.py` emits):
+Command vocabulary (exactly what `snn_data_lake/interpreter.py` emits):
 ```
 GRIPPER_CLOSE
 GRIPPER_OPEN
@@ -80,7 +80,7 @@ JOINT_B_ROTATE(-10deg)
 HOME
 RETRACT_ALL
 ```
-Driven by `python live_arm.py --serial COMx --actuate COMx` (`serial_arm.SerialArm`). SerialArm
+Driven by `python -m snn_data_lake.live_arm --serial COMx --actuate COMx` (`serial_arm.SerialArm`). SerialArm
 refuses to open a real port until `arm_config.SAFETY_CALIBRATED = True` — set that only after the
 placeholder limits are replaced with your rig's real values. Bench-test with the sketch's
 `ECHO_ONLY = true` first (servos unpowered) to confirm the right command arrives.
@@ -93,8 +93,8 @@ window at `N=64`, so the Arduino's `delay()` sets the real cadence.
 ## Test without hardware
 Same contract over stdin — pipe a CSV of windows:
 ```
-cat windows.csv | python signal_loop.py --stdin            # hybrid
-cat windows.csv | python signal_loop.py --stdin --fast     # template baseline
+cat windows.csv | python -m snn_data_lake.signal_loop --stdin            # hybrid
+cat windows.csv | python -m snn_data_lake.signal_loop --stdin --fast     # template baseline
 ```
 
 ## Example Arduino sketch — direct mode (64 features/line)
@@ -117,7 +117,7 @@ float readFeature(int i) { /* your sensor/feature code */ return analogRead(A0) 
 ## Example Arduino sketch — windowed mode (C raw channels/line)
 ```cpp
 // Streams C raw channel samples per timestep; the loop buffers W of these
-// (run: python signal_loop.py --serial COM3 --window 8).
+// (run: python -m snn_data_lake.signal_loop --serial COM3 --window 8).
 const int C = 8;                          // channels (e.g. 6 joints + grip + current)
 void setup() { Serial.begin(115200); }
 void loop() {
@@ -132,5 +132,5 @@ void loop() {
 
 ## Enrolling references
 Each command needs one reference signature in `data/signatures.json`. On hardware:
-hold the arm in the gesture, then `python signal_loop.py --enroll GRIPPER_CLOSE` captures
+hold the arm in the gesture, then `python -m snn_data_lake.signal_loop --enroll GRIPPER_CLOSE` captures
 a window. Labels in `signatures.json` are exactly what `match` emits to the Interpreter.

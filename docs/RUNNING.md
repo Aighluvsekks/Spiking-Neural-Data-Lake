@@ -16,15 +16,16 @@ Two ways to run everything: **local** (one machine, mostly zero-dependency) and 
 git clone https://github.com/Aighluvsekks/Spiking-Neural-Data-Lake.git
 cd Spiking-Neural-Data-Lake
 python --version          # need 3.11+
+pip install -e .          # editable install (core = zero runtime deps)
 ```
 
-### 1. Zero-dependency core (no install)
+### 1. Core self-checks (zero runtime deps)
 Every stdlib module runs standalone with an assert-based self-check — the fastest way to see
 each piece work:
 ```bash
 python research/spiking_storage_prototype.py   # factored associative-memory storage
-python spike_telemetry_hub.py         # Paradigm A: sparse .spk store + windowed queries
-python paradigm_b_engine.py           # Paradigm B: in-storage spike-query engine
+python -m snn_data_lake.spike_telemetry_hub         # Paradigm A: sparse .spk store + windowed queries
+python -m snn_data_lake.paradigm_b_engine           # Paradigm B: in-storage spike-query engine
 python research/spike_knowledge_graph.py       # Paradigm C: relational spike embeddings
 ```
 Run the whole suite (what CI runs) — CORE product + `research/` self-checks:
@@ -36,20 +37,19 @@ python run_selfchecks.py       # 37/37, one source of truth for the module list
 Encode → data lake → match → command → reward → learn (with reflex + RPE dopamine + cortisol +
 the Interpreter), all zero-dep, on `main`:
 ```bash
-python closed_loop.py        # full stack end-to-end: gesture -> command, collision -> STOP
-python signal_loop.py        # the loop alone (hybrid matcher) + self-check
-python interpreter.py        # matched label -> robot command + self-check
+python -m snn_data_lake.closed_loop        # full stack end-to-end: gesture -> command, collision -> STOP
+python -m snn_data_lake.signal_loop        # the loop alone (hybrid matcher) + self-check
+python -m snn_data_lake.interpreter        # matched label -> robot command + self-check
 # drive it with no hardware (outcomes back via OUTCOME lines):
-cat windows.csv | python signal_loop.py --stdin --feedback --reflex
+cat windows.csv | python -m snn_data_lake.signal_loop --stdin --feedback --reflex
 ```
 
 ### 3. The Medallion lakehouse PoC (needs polars)
 Bronze → Silver → Gold over Parquet, the data path that scales to the cloud:
 ```bash
 python -m venv .venv-lake
-.venv-lake/bin/pip install polars pyarrow          # Windows: .venv-lake\Scripts\pip
-# run from repo root — medallion imports spike_telemetry_hub/data_quality from root, so root must be on PYTHONPATH
-PYTHONPATH=. .venv-lake/bin/python lakehouse/medallion.py    # Windows: $env:PYTHONPATH="."; .venv-lake\Scripts\python lakehouse\medallion.py
+.venv-lake/bin/pip install -e ".[lake]"            # package + polars/pyarrow/deltalake (Windows: .venv-lake\Scripts\pip)
+.venv-lake/bin/python -m snn_data_lake.lakehouse.medallion   # Windows: .venv-lake\Scripts\python -m snn_data_lake.lakehouse.medallion
 # writes lakehouse/data/{bronze,silver,gold}.parquet + prints ICR, synchrony, SQL query
 ```
 `lakehouse/data/bronze.parquet` is exactly what you upload to the cloud Bronze (below).
@@ -97,7 +97,7 @@ gcloud services enable storage bigquery dataproc aiplatform artifactregistry clo
 cd infra && terraform init && terraform apply -var project_id=snn-data-lake-prod
 export PROJECT=snn-data-lake-prod BUCKET=$(terraform output -raw bucket); cd ..
 
-# 2. land the locally-produced Bronze (from lakehouse/medallion.py)
+# 2. land the locally-produced Bronze (from snn_data_lake/lakehouse/medallion.py)
 gcloud storage cp lakehouse/data/bronze.parquet gs://$BUCKET/bronze/
 
 # 3. Medallion ETL on Dataproc Serverless (managed Spark, no cluster)
@@ -122,7 +122,7 @@ gcloud storage cp gcp/dataproc_medallion.py gs://$BUCKET/code/
 ### Local → cloud mapping
 | Local | Cloud (GCP) |
 |-------|-------------|
-| `lakehouse/medallion.py` (polars) | `gcp/dataproc_medallion.py` (PySpark on Dataproc Serverless) |
+| `snn_data_lake/lakehouse/medallion.py` (polars) | `gcp/dataproc_medallion.py` (PySpark on Dataproc Serverless) |
 | `lakehouse/data/*.parquet` | `gs://$BUCKET/{bronze,silver,gold}/` |
 | polars SQL over Parquet | BigQuery over BigLake/Iceberg |
 | `research/eth_mnist_bindsnet.py --gpu` | Vertex AI custom job (`submit_vertex.sh`) |

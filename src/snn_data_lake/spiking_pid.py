@@ -19,8 +19,8 @@ We VERIFY convergence + noise robustness (not the brief's 30%-vs-digital claim).
 """
 import random
 
-from population_encoding import PopulationEncoder
-from arm_sim import ArmSim, DEG
+from snn_data_lake.population_encoding import PopulationEncoder
+from snn_data_lake.arm_sim import ArmSim, DEG
 
 
 class SpikingPID:

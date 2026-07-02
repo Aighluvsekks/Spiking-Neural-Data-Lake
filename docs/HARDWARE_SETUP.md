@@ -5,7 +5,7 @@ End-to-end guide: bare ESP32 + sensors + arm → the live loop moving a **real**
 (what's blocking) alongside this.
 
 ```
-  [ ultrasonic + IR ] --sensor line--> ESP32 --USB serial (one UART)--> PC: live_arm.py
+  [ ultrasonic + IR ] --sensor line--> ESP32 --USB serial (one UART)--> PC: snn_data_lake/live_arm.py
                                           ^                                   |
   [ gripper + 2 joints ] <--PWM--  servos |  <----------command line---------- (recognize -> Interpreter)
 ```
@@ -107,14 +107,14 @@ void loop(){
 ```powershell
 git clone https://github.com/Aighluvsekks/Spiking-Neural-Data-Lake.git
 cd Spiking-Neural-Data-Lake
-python demo.py                       # sanity: zero-dep, must print the loop (Python 3.11+)
-python -m pip install pyserial       # serial dep for the live path
-[System.IO.Ports.SerialPort]::getportnames()   # find your ESP32 port, e.g. COM8
+pip install -e ".[arm]"                            # package + pyserial for the live path
+python -m snn_data_lake.demo                       # sanity: must print the loop (Python 3.11+)
+[System.IO.Ports.SerialPort]::getportnames()       # find your ESP32 port, e.g. COM8
 ```
 
 ## 5. Calibration & safety  *(do BEFORE any servo moves)*
 The sim ships **placeholder** limits. Replace them with your rig's real values, then arm the gate:
-- **`arm_config.py`** — `CONTACT` (E-STOP distance, m), distance bins, `TRAJ_DEV_MAX`.
+- **`snn_data_lake/arm_config.py`** — `CONTACT` (E-STOP distance, m), distance bins, `TRAJ_DEV_MAX`.
 - **Sketch** — `GRIP_OPEN/CLOSED`, `JOINT_MIN/MAX`, `HOME_A/B`, servo pins.
 - Only after those are real: set **`arm_config.SAFETY_CALIBRATED = True`**.
 
@@ -125,7 +125,7 @@ deliberate gate so placeholder limits can't drive hardware.
 1. **Echo test (servos safe).** Sketch `ECHO_ONLY = true`. Open the Arduino **Serial Monitor**
    (115200), type `GRIPPER_CLOSE` → see `ACK GRIPPER_CLOSE`, and confirm `d, t` lines stream. No
    Python, no gate needed.
-2. **Sensor stream sanity.** `python live_arm.py --csv captures\IDLE.csv` after a recording (§7),
+2. **Sensor stream sanity.** `python -m snn_data_lake.live_arm --csv captures\IDLE.csv` after a recording (§7),
    or watch the Serial Monitor — distances change as you move your hand.
 3. **Set real safety numbers** (§5), flip `SAFETY_CALIBRATED = True`.
 4. **One joint.** Sketch `ECHO_ONLY = false`; wire only Joint A. `live_arm --serial COMx --actuate
@@ -142,8 +142,8 @@ Record labeled captures and run the whole thing with the helper:
 Or manually:
 ```powershell
 python "robot arm/sensor_reading.py" HAND_APPROACH COM8   # record one gesture (Ctrl-C to stop)
-python live_arm.py --serial COM8                          # live, SIM arm (no actuation)
-python live_arm.py --serial COM8 --actuate COM8           # live, REAL arm (one UART, gated)
+python -m snn_data_lake.live_arm --serial COM8                          # live, SIM arm (no actuation)
+python -m snn_data_lake.live_arm --serial COM8 --actuate COM8           # live, REAL arm (one UART, gated)
 ```
 `--serial COMx --actuate COMx` (same port) is the single-UART case — one handle, read + write.
 

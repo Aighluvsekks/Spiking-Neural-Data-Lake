@@ -27,7 +27,7 @@ Phase 2 is turning that from **replay into a real, live loop on your hardware**.
 ### 1. A live run  *(blocking)*
 Everything works on replay; we need one real real-time run. With the ESP32 + arm connected:
 ```bash
-python live_arm.py --serial COM8      # your port
+python -m snn_data_lake.live_arm --serial COM8      # your port
 ```
 **Deliver:** confirmation it runs end-to-end, plus the console log (or a short video). If it
 errors, send the error — that's just as useful.
@@ -50,9 +50,9 @@ Our danger thresholds are **guesses**. Give the real numbers for your rig:
 |---|---|---|
 | Contact distance → E-STOP | `CONTACT = 0.04 m` | at what distance is a collision imminent? |
 | Joint limits / reach | ±0.4 rad (sim) | your arm's real min/max per joint |
-| Over-current / force danger | `reflex.py` ch6/ch7 rules = placeholder | any reading that means "stop now" |
+| Over-current / force danger | `snn_data_lake/reflex.py` ch6/ch7 rules = placeholder | any reading that means "stop now" |
 
-**Deliver:** short written values. These wire straight into `arm_config.py` + `reflex.py`.
+**Deliver:** short written values. These wire straight into `snn_data_lake/arm_config.py` + `snn_data_lake/reflex.py`.
 
 ### 4. IR channel calibration  *(upgrade)*
 Sensor_2 (IR) is captured but currently **ignored** — we don't know its polarity/scale, so IR
@@ -82,7 +82,7 @@ command mapping. Your Phase 2 surface is only: **run the live loop (#1), give co
 the servos (#2), and hand us the real safety numbers (#3)**. #4–#6 are upgrades.
 
 ## Acceptance (how we'll know Phase 2 works)
-- `live_arm.py --serial COM8` runs live: your gesture in front of the sensor → correct command →
+- `snn_data_lake/live_arm.py --serial COM8` runs live: your gesture in front of the sensor → correct command →
   the **real** arm moves, and a too-close reading triggers `EMERGENCY_STOP` before contact.
 - The E-STOP distance and joint limits are **your** real numbers, not our placeholders.
 

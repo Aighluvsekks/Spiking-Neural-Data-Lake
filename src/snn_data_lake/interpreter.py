@@ -104,7 +104,7 @@ def selfcheck():
     assert Interpreter(assume_success=True).interpret({"match": "HOME"})[1] == 0.5
 
     # ---- integration: drive real loop events through the Interpreter ----------
-    import signal_loop as S
+    from snn_data_lake import signal_loop as S
     lib = S.build_default_library()
     matcher = S.build_matcher(lib)
 
@@ -117,7 +117,7 @@ def selfcheck():
     assert "GRIPPER_CLOSE" in cmds, f"reference signal did not map to its command: {cmds}"
 
     # b) a collision through a reflex-enabled loop -> EMERGENCY_STOP + bad reward
-    from reflex import Reflex
+    from snn_data_lake.reflex import Reflex
     danger = "500,500,500,500,500,500,950,0"
     ev2 = []
     S.run_live(iter([danger]), lib, matcher, Reflex(),

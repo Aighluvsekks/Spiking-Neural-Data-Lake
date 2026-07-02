@@ -31,7 +31,7 @@ WHAT WE NEED FROM YOU (6 items, blocking first)
 1. A LIVE RUN   (BLOCKING)
    Everything works on replay; we need one real real-time run. With the
    ESP32 + arm connected:
-       python live_arm.py --serial COM8      (your port)
+       python -m snn_data_lake.live_arm --serial COM8      (your port)
    DELIVER: confirmation it runs end-to-end, plus the console log (or a
    short video). If it errors, send the error - that's just as useful.
 
@@ -56,11 +56,11 @@ WHAT WE NEED FROM YOU (6 items, blocking first)
                                                      collision imminent?
      Joint limits / reach       +-0.4 rad (sim)      your arm's real min/max
                                                      per joint
-     Over-current / force       reflex.py ch6/ch7    any reading that means
+     Over-current / force       snn_data_lake/reflex.py ch6/ch7    any reading that means
                                 = placeholder        "stop now"
 
-   DELIVER: short written values. These wire straight into arm_config.py
-   and reflex.py.
+   DELIVER: short written values. These wire straight into snn_data_lake/arm_config.py
+   and snn_data_lake/reflex.py.
 
 4. IR CHANNEL CALIBRATION   (upgrade)
    Sensor_2 (IR) is captured but currently IGNORED - we don't know its
@@ -96,7 +96,7 @@ safety numbers (#3). #4-#6 are upgrades.
 ------------------------------------------------------------------------
 ACCEPTANCE (how we'll know Phase 2 works)
 ------------------------------------------------------------------------
-- live_arm.py --serial COM8 runs live: your gesture in front of the sensor
+- snn_data_lake/live_arm.py --serial COM8 runs live: your gesture in front of the sensor
   -> correct command -> the REAL arm moves, and a too-close reading triggers
   EMERGENCY_STOP before contact.
 - The E-STOP distance and joint limits are YOUR real numbers, not our

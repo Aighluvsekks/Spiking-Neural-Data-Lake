@@ -19,11 +19,11 @@ import sys
 
 import time
 
-import signal_loop as S
-from gesture_recognition import classify, load_csv, windows, W
-from interpreter import Interpreter
-from arm_sim import ArmSim
-from arm_config import CONTACT, STRIDE          # reflex distance + window stride: calibration in arm_config
+from snn_data_lake import signal_loop as S
+from snn_data_lake.gesture_recognition import classify, load_csv, windows, W
+from snn_data_lake.interpreter import Interpreter
+from snn_data_lake.arm_sim import ArmSim
+from snn_data_lake.arm_config import CONTACT, STRIDE          # reflex distance + window stride: calibration in arm_config
 
 SENSOR_COMMANDS = {"HAND_APPROACH": "GRIPPER_CLOSE",   # grab the approaching object
                    "HAND_RETREAT":  "GRIPPER_OPEN",    # release as it leaves
@@ -109,7 +109,7 @@ def main():
         port = args[args.index("--serial") + 1]
         baud = int(args[args.index("--baud") + 1]) if "--baud" in args else 115200
         if actuate:
-            import serial_arm
+            from snn_data_lake import serial_arm
             serial_arm.assert_calibrated()                # refuse real servos w/ placeholder limits
             if actuate == port:                           # one UART: share ONE handle (read + write)
                 import serial
@@ -166,7 +166,7 @@ def main():
     assert stats_a.get("reflex", 0) >= 1, "contact never tripped the reflex STOP"
 
     # duplex smoke test: sensor-read + command-write share ONE serial handle (no hardware).
-    from serial_arm import SerialArm
+    from snn_data_lake.serial_arm import SerialArm
     lines = ([f"{0.9 - 0.11 * i}, 295.0\n".encode() for i in range(W)] * 3) + [b"0.02, 298.0\n"]
 
     class _FakeDuplex:

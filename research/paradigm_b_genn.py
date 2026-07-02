@@ -43,8 +43,8 @@ except Exception as _e:                      # noqa: BLE001 — any import failu
     _IMPORT_ERR = _e
 
 import sys
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # repo root -> product modules
-from spike_telemetry_hub import disk_query, synth, SpikeTelemetryHub
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "src"))  # repo root -> product modules
+from snn_data_lake.spike_telemetry_hub import disk_query, synth, SpikeTelemetryHub
 
 
 def build_and_run(spk_path, channels, window, k, weight=1.0):

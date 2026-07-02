@@ -7,9 +7,9 @@ source of truth: CI runs `python run_selfchecks.py`, docs point here. Each modul
 `if __name__ == "__main__"` block is its own assert-based test; this runs them as
 subprocesses (isolation) and fails loudly if any non-zero exits.
 
-All ZERO-DEP (pure stdlib). Two tiers: CORE = the product (arm-loop + data-lake, at root);
-RESEARCH = neuromorphic benchmarks / storage / KG demos (research/). Both are CI-green; the
-MNIST/GPU/cloud scripts need torch/beam and are excluded by design.
+All ZERO-DEP (pure stdlib). Two tiers: CORE = the product package (src/snn_data_lake/, run as
+`-m snn_data_lake.<mod>`); RESEARCH = benchmarks / storage / KG demos (research/). Both CI-green;
+the MNIST/GPU/cloud scripts need torch/beam and are excluded by design.
 
   python run_selfchecks.py          # run all, exit non-zero on any failure
   python run_selfchecks.py --list   # print the module list, one per line
@@ -19,8 +19,8 @@ import sys
 import subprocess
 
 # children print Unicode (φ, −, …); force UTF-8 so a Windows cp1252 console can't crash them.
-# PYTHONPATH="." so research/ modules resolve root product imports (e.g. snn_moe_classifier).
-_ENV = {**os.environ, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8", "PYTHONPATH": "."}
+# PYTHONPATH="src" so `snn_data_lake` (the package) + research/ modules importing it resolve.
+_ENV = {**os.environ, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8", "PYTHONPATH": "src"}
 
 # CORE — the product: arm-loop + data-lake, clone-and-run (root).
 CORE = [
@@ -44,8 +44,9 @@ MODULES = CORE + RESEARCH
 def run_all():
     failed = []
     for m in MODULES:
-        r = subprocess.run([sys.executable, f"{m}.py"], capture_output=True, text=True,
-                           encoding="utf-8", env=_ENV)
+        cmd = ([sys.executable, f"{m}.py"] if m.startswith("research/")   # research/: run as a script
+               else [sys.executable, "-m", f"snn_data_lake.{m}"])         # CORE: run as a package module
+        r = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", env=_ENV)
         ok = r.returncode == 0
         print(f"{'PASS' if ok else 'FAIL'}  {m}")
         if not ok:

@@ -57,8 +57,8 @@ def demo_episode():
     """Reflex + valence + cortisol coupled through a stress episode:
     quiet -> danger burst (stress rises, reflex sharpens, aversive learning amplified)
     -> quiet (recovery)."""
-    from reflex import Reflex
-    from valence_stdp import ValenceLearner, _pattern, _jitter
+    from snn_data_lake.reflex import Reflex
+    from snn_data_lake.valence_stdp import ValenceLearner, _pattern, _jitter
     import random
 
     rng = random.Random(0)

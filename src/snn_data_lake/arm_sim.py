@@ -17,7 +17,7 @@ Backends:
 import re
 import math
 
-from arm_config import TRAJ_DEV_MAX        # trajectory-deviation reflex bound (calibration)
+from snn_data_lake.arm_config import TRAJ_DEV_MAX        # trajectory-deviation reflex bound (calibration)
 
 DEG = math.pi / 180.0
 FLOOR_Y = -0.20                 # end-effector below this = ground collision
@@ -197,7 +197,7 @@ def main():
     assert not arm.trajectory_breach(), "corrective HOME did not clear the trajectory breach"
 
     # integration: Interpreter command -> arm motion
-    from interpreter import Interpreter
+    from snn_data_lake.interpreter import Interpreter
     cmd = Interpreter().interpret({"match": "JOINT_B_ROTATE"})[0]   # -> "JOINT_B_ROTATE(-10deg)"
     arm.apply("HOME")
     moved = arm.apply(cmd)

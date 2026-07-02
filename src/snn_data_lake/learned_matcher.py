@@ -16,9 +16,9 @@ windows across a rising-noise sweep and reports who wins where. Low noise: a tie
 """
 import random
 
-import snn_classifier as C            # train/forward/softmax + globals N, STEPS, EPOCHS
-from signal_loop import build_default_library
-from spike_preprocessing import encode_latency, van_rossum_distance
+from snn_data_lake import snn_classifier as C            # train/forward/softmax + globals N, STEPS, EPOCHS
+from snn_data_lake.signal_loop import build_default_library
+from snn_data_lake.spike_preprocessing import encode_latency, van_rossum_distance
 
 N = C.N                               # 64 features — matches the signal window
 THR = 0.5                             # binarize a [0,1] window for the rate-coder

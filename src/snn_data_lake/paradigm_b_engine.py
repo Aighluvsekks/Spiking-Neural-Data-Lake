@@ -20,8 +20,8 @@ Run:  python paradigm_b_engine.py
 """
 import os
 import random
-from spike_telemetry_hub import SpikeTelemetryHub, disk_query, synth
-from paradigm_b_matcher import subdetector_match   # verified distinct-channel coincidence
+from snn_data_lake.spike_telemetry_hub import SpikeTelemetryHub, disk_query, synth
+from snn_data_lake.paradigm_b_matcher import subdetector_match   # verified distinct-channel coincidence
 
 _MAXT = 2 ** 31 - 1
 

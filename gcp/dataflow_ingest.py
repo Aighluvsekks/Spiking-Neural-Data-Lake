@@ -15,8 +15,8 @@ import pyarrow as pa
 from apache_beam.options.pipeline_options import PipelineOptions
 
 # same data-quality gate the batch path (lakehouse/medallion.py) runs before Gold — streaming parity
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import data_quality
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "src"))
+from snn_data_lake import data_quality
 
 _SCHEMA = pa.schema([pa.field("t", pa.int64()), pa.field("channel", pa.int32())])
 

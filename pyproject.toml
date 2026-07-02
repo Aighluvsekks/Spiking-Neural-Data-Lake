@@ -1,8 +1,7 @@
-# Installable packaging. Core is pure-stdlib (empty `dependencies`); optional groups mirror
-# requirements.txt. `pip install ".[all]"` installs EVERY addon (arm+lake+gpu+nmnist) in one env
-# plus the `snn-demo` command. The full multi-module arm-loop + lake stay clone-and-run: their
-# generic module names (e.g. `reflex`, `interpreter`) would collide as flat top-level installs; a
-# namespaced `src/` package is the clean way to ship them — intentionally not adopted (see README).
+# Installable src/ package (snn_data_lake). Core is pure-stdlib (empty `dependencies`); optional
+# groups mirror requirements.txt. `pip install .` makes every module importable as
+# `snn_data_lake.<mod>` + installs the console commands below; `pip install ".[all]"` adds every
+# addon (arm+lake+gpu+nmnist). Namespaced -> no top-level collisions (reflex/interpreter/etc).
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
@@ -31,10 +30,12 @@ nmnist = ["tonic"]                                                       # resea
 all = ["spiking-neural-data-lake[arm,lake,gpu,nmnist]"]                   # every addon in one install
 
 [project.scripts]
-snn-demo = "demo:main"        # self-contained one-file demo (the full loop runs clone-and-run)
+snn-demo = "snn_data_lake.demo:main"         # one-file demo loop
+snn-arm  = "snn_data_lake.live_arm:main"     # live gesture -> arm (add --serial/--actuate for hardware)
+snn-loop = "snn_data_lake.closed_loop:main"  # full closed loop: gesture -> command -> reward -> learn
 
 [project.urls]
 Homepage = "https://github.com/Aighluvsekks/Spiking-Neural-Data-Lake"
 
 [tool.hatch.build.targets.wheel]
-only-include = ["demo.py"]   # only the self-contained demo installs cleanly; full loop is clone-and-run
+packages = ["src/snn_data_lake"]

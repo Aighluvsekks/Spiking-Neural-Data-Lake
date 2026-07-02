@@ -56,10 +56,10 @@ import math
 import random
 import zlib
 
-from spike_preprocessing import encode_latency, van_rossum_distance, N, T
-from reflex import Reflex, reflex_guard      # #2 instinctive fast-path (no cycle: reflex is leaf)
-from valence_stdp import ValenceLearner      # #3 RPE dopamine (leaf: only imports spike_preprocessing)
-from cortisol import Cortisol                # slow tonic stress (leaf: only os/math)
+from snn_data_lake.spike_preprocessing import encode_latency, van_rossum_distance, N, T
+from snn_data_lake.reflex import Reflex, reflex_guard      # #2 instinctive fast-path (no cycle: reflex is leaf)
+from snn_data_lake.valence_stdp import ValenceLearner      # #3 RPE dopamine (leaf: only imports spike_preprocessing)
+from snn_data_lake.cortisol import Cortisol                # slow tonic stress (leaf: only os/math)
 
 SIG_PATH = os.path.join(".", "data", "signatures.json")
 LAKE_PATH = os.path.join(".", "data", "lake.spc")
@@ -198,7 +198,7 @@ def build_learned_matcher(library):
     """Stronger: supervised spiking classifier picks the command, Van Rossum
     distance gate vetoes novel signals (hybrid — see learned_matcher.py). Trains
     at build time. Returns the same (label, dist, ref, encoded) shape as build_matcher."""
-    import learned_matcher as L          # lazy: avoids the signal_loop<->learned_matcher cycle
+    from snn_data_lake import learned_matcher as L          # lazy: avoids the signal_loop<->learned_matcher cycle
     labels = list(library)
     nC = len(labels)
     refs_enc = [encode_latency(v) for v in library.values()]
