@@ -36,7 +36,7 @@ Run the **full zero-dep self-check suite** (exactly what CI runs — the 32 stdl
 MNIST/GPU models are excluded as they need PyTorch). The list lives in
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) and [docs/RUNNING.md](docs/RUNNING.md):
 ```bash
-python spiking_storage_prototype.py   # storage
+python research/spiking_storage_prototype.py   # storage
 python paradigm_b_engine.py           # in-storage order-aware query
 python closed_loop.py                 # the full brain-stack loop (encode→match→reward→learn)
 # ...full list (32) in docs/RUNNING.md §1
@@ -84,18 +84,18 @@ The three data-system paradigms (after an external architectural assessment), al
 | Paradigm | Capability | Implementation | Status |
 |----------|------------|----------------|--------|
 | **A** — telemetry hub | store + query multi-channel spike trains as sparse events | `spike_telemetry_hub.py` | ✅ complete (v0.12) |
-| **B** — in-storage search | compile a query into an SNN, stream stored spikes, emit only matches (coincidence **and** temporal sequence) | `paradigm_b_engine.py` (+ `paradigm_b_genn.py` GPU) | ✅ complete (v0.20) |
-| **C** — relational embeddings | a knowledge graph in spike timing; link prediction, anomaly scoring, full relation algebra (symmetric / inverse / composition) | `spike_knowledge_graph.py` (TransE), `spike_knowledge_graph_rotate.py` (RotatE), `spike_kg_relations.py` (algebra) | ✅ complete (v0.21–25) |
+| **B** — in-storage search | compile a query into an SNN, stream stored spikes, emit only matches (coincidence **and** temporal sequence) | `paradigm_b_engine.py` (+ `research/paradigm_b_genn.py` GPU) | ✅ complete (v0.20) |
+| **C** — relational embeddings | a knowledge graph in spike timing; link prediction, anomaly scoring, full relation algebra (symmetric / inverse / composition) | `research/spike_knowledge_graph.py` (TransE), `research/spike_knowledge_graph_rotate.py` (RotatE), `research/spike_kg_relations.py` (algebra) | ✅ complete (v0.21–25) |
 
 Trainable models (learn the representations):
 
 | Model | Mechanism | File | Headline |
 |-------|-----------|------|----------|
-| Unsupervised STDP | rate-coded, adaptive threshold, hard-WTA | `snn_mnist_stdp.py` | 82.3% CPU |
-| Conductance Diehl & Cook | exc/inh populations, BindsNET, GPU | `eth_mnist_bindsnet.py` | **90.0% @1600n** (scale-tuned); 95% via 6400 + multi-epoch |
-| Latency STDP | deterministic, precomputed, burst+x_tar | `snn_mnist_stdp_fast.py` | 76%, 2.1× faster |
-| Spike-driven MoE + STDP | firing-rate routing over expert pops | `snn_moe_stdp_mnist.py` | 0-param router |
-| GeNN custom plasticity | v0.17 rule as a CUDA weight-update model | `snn_mnist_stdp_genn.py` | GPU port |
+| Unsupervised STDP | rate-coded, adaptive threshold, hard-WTA | `research/snn_mnist_stdp.py` | 82.3% CPU |
+| Conductance Diehl & Cook | exc/inh populations, BindsNET, GPU | `research/eth_mnist_bindsnet.py` | **90.0% @1600n** (scale-tuned); 95% via 6400 + multi-epoch |
+| Latency STDP | deterministic, precomputed, burst+x_tar | `research/snn_mnist_stdp_fast.py` | 76%, 2.1× faster |
+| Spike-driven MoE + STDP | firing-rate routing over expert pops | `research/snn_moe_stdp_mnist.py` | 0-param router |
+| GeNN custom plasticity | v0.17 rule as a CUDA weight-update model | `research/snn_mnist_stdp_genn.py` | GPU port |
 
 ![Results by version](assets/results.svg?v=0.30)
 
@@ -120,27 +120,27 @@ collaborator hardware work; its contents are merged here.)
 
 ```
 spiking-neural-data-lake/
-  spiking_storage_prototype.py     associative memory (factored O(P·k) storage)
-  test_prototype.py                capacity / noise stress sweeps
+  research/spiking_storage_prototype.py     associative memory (factored O(P·k) storage)
+  research/test_prototype.py                capacity / noise stress sweeps
   snn_classifier.py                supervised spiking classifier (+ `sweep` mode)
-  snn_moe_classifier.py            spike-driven MoE routing
-  temporal_coding_storage.py       time-to-first-spike (TTFS) latency coding
+  research/snn_moe_classifier.py            spike-driven MoE routing
+  research/temporal_coding_storage.py       time-to-first-spike (TTFS) latency coding
   spike_telemetry_hub.py           Paradigm A — sparse .spk store + windowed queries
   paradigm_b_matcher.py            Paradigm B — coincidence matcher (CPU, verified)
   paradigm_b_engine.py             Paradigm B — coincidence + temporal-sequence engine
-  paradigm_b_genn.py               Paradigm B — GeNN GPU port
+  research/paradigm_b_genn.py               Paradigm B — GeNN GPU port
   spike_preprocessing.py           deterministic encode + precompute cache + Van Rossum
-  spike_knowledge_graph.py         Paradigm C — SpikE relational embeddings (TransE)
-  spike_knowledge_graph_rotate.py  Paradigm C — RotatE (cyclic relations, phase coding)
-  snn_mnist_stdp.py                unsupervised STDP on MNIST (rate, snnTorch)
-  snn_mnist_stdp_fast.py           latency STDP (deterministic, precomputed) + rate compare
-  snn_mnist_dc.py                  from-scratch Diehl & Cook (documented negative result)
-  snn_moe_stdp_mnist.py            MoE + STDP hybrid
-  eth_mnist_bindsnet.py            BindsNET conductance Diehl & Cook (GPU via --gpu)
-  snn_mnist_stdp_genn.py           GeNN custom-plasticity GPU port
-  snn_storage_core_snntorch.py     extracted snnTorch blueprint (reference)
-  nmnist_ingest.py                 N-MNIST event-camera ingestion (Tonic opt; synth fallback)
-  make_results_plot.py             regenerates assets/results.svg
+  research/spike_knowledge_graph.py         Paradigm C — SpikE relational embeddings (TransE)
+  research/spike_knowledge_graph_rotate.py  Paradigm C — RotatE (cyclic relations, phase coding)
+  research/snn_mnist_stdp.py                unsupervised STDP on MNIST (rate, snnTorch)
+  research/snn_mnist_stdp_fast.py           latency STDP (deterministic, precomputed) + rate compare
+  research/snn_mnist_dc.py                  from-scratch Diehl & Cook (documented negative result)
+  research/snn_moe_stdp_mnist.py            MoE + STDP hybrid
+  research/eth_mnist_bindsnet.py            BindsNET conductance Diehl & Cook (GPU via --gpu)
+  research/snn_mnist_stdp_genn.py           GeNN custom-plasticity GPU port
+  research/snn_storage_core_snntorch.py     extracted snnTorch blueprint (reference)
+  research/nmnist_ingest.py                 N-MNIST event-camera ingestion (Tonic opt; synth fallback)
+  research/make_results_plot.py             regenerates assets/results.svg
   docs/RUNNING.md                  local + cloud runbook
   lakehouse/medallion.py           Medallion Bronze/Silver/Gold PoC (Parquet + polars)
   infra/                           Terraform — GCP-native lakehouse infrastructure
@@ -158,20 +158,20 @@ spiking-neural-data-lake/
 
 ```bash
 # Pure-stdlib — no install needed (these run in CI):
-python spiking_storage_prototype.py      # associative memory + savings
+python research/spiking_storage_prototype.py      # associative memory + savings
 python snn_classifier.py                 # supervised spiking classifier
-python temporal_coding_storage.py        # TTFS latency coding (83× fewer ops)
+python research/temporal_coding_storage.py        # TTFS latency coding (83× fewer ops)
 python spike_telemetry_hub.py            # Paradigm A — sparse spike-train store
 python paradigm_b_engine.py              # Paradigm B — coincidence + sequence queries
-python spike_knowledge_graph.py          # Paradigm C — SpikE relational embeddings
-python spike_knowledge_graph_rotate.py   # Paradigm C — RotatE cyclic relations
-python spike_kg_relations.py             # Paradigm C — relation algebra (sym/inverse/composition)
+python research/spike_knowledge_graph.py          # Paradigm C — SpikE relational embeddings
+python research/spike_knowledge_graph_rotate.py   # Paradigm C — RotatE cyclic relations
+python research/spike_kg_relations.py             # Paradigm C — relation algebra (sym/inverse/composition)
 
 # Real-data models — need deps (CPU build is fine):
 pip install -r requirements.txt
-python snn_mnist_stdp.py                                          # 74.6%
+python research/snn_mnist_stdp.py                                          # 74.6%
 NORD_M=300 NORD_TRAIN=6000 NORD_TDECAY=0.99999 NORD_TPLUS=0.8 \
-  python snn_mnist_stdp.py                                        # 82.3% (best CPU)
+  python research/snn_mnist_stdp.py                                        # 82.3% (best CPU)
 ```
 
 ### GPU
@@ -182,7 +182,7 @@ then one switch:
 ```bash
 pip install --force-reinstall torch torchvision --index-url https://download.pytorch.org/whl/cu128
 pip install bindsnet
-python eth_mnist_bindsnet.py --gpu        # default 400 neurons / 20k → 86.4% (verified)
+python research/eth_mnist_bindsnet.py --gpu        # default 400 neurons / 20k → 86.4% (verified)
 ```
 
 **Measured GPU results (honest):**
@@ -199,7 +199,7 @@ Knobs: `NORD_INH`, `NORD_THETA_PLUS`, `NORD_EXC`, `NORD_NORM`, `NORD_EPOCHS`.
 
 ```bash
 # the verified 90% run:
-NORD_M=1600 NORD_TRAIN=60000 NORD_INH=60 NORD_THETA_PLUS=0.20 python eth_mnist_bindsnet.py --gpu
+NORD_M=1600 NORD_TRAIN=60000 NORD_INH=60 NORD_THETA_PLUS=0.20 python research/eth_mnist_bindsnet.py --gpu
 ```
 Chart the scaling law (400 → 1600 → 6400) with `bash gpu_scaling_sweep.sh` (unbuffered).
 

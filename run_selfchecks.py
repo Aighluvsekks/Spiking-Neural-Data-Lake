@@ -7,8 +7,9 @@ source of truth: CI runs `python run_selfchecks.py`, docs point here. Each modul
 `if __name__ == "__main__"` block is its own assert-based test; this runs them as
 subprocesses (isolation) and fails loudly if any non-zero exits.
 
-These are the ZERO-DEP modules only — the MNIST/GPU/cloud scripts need torch/beam and are
-excluded by design (same scope as the old CI loop).
+All ZERO-DEP (pure stdlib). Two tiers: CORE = the product (arm-loop + data-lake, at root);
+RESEARCH = neuromorphic benchmarks / storage / KG demos (research/). Both are CI-green; the
+MNIST/GPU/cloud scripts need torch/beam and are excluded by design.
 
   python run_selfchecks.py          # run all, exit non-zero on any failure
   python run_selfchecks.py --list   # print the module list, one per line
@@ -17,20 +18,27 @@ import os
 import sys
 import subprocess
 
-# children print Unicode (φ, −, …); force UTF-8 so a Windows cp1252 console can't crash them
-_ENV = {**os.environ, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"}
+# children print Unicode (φ, −, …); force UTF-8 so a Windows cp1252 console can't crash them.
+# PYTHONPATH="." so research/ modules resolve root product imports (e.g. snn_moe_classifier).
+_ENV = {**os.environ, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8", "PYTHONPATH": "."}
 
-MODULES = [
-    "spiking_storage_prototype", "test_prototype", "snn_classifier", "snn_moe_classifier",
-    "temporal_coding_storage", "spike_telemetry_hub", "streaming_hub", "data_quality",
+# CORE — the product: arm-loop + data-lake, clone-and-run (root).
+CORE = [
+    "snn_classifier", "spike_telemetry_hub", "streaming_hub", "data_quality",
     "paradigm_b_matcher", "paradigm_b_engine", "spike_preprocessing",
-    "spike_knowledge_graph", "spike_knowledge_graph_rotate", "spike_kg_relations",
-    "nmnist_ingest", "signal_loop", "learned_matcher", "reflex", "valence_stdp", "cortisol",
+    "signal_loop", "learned_matcher", "reflex", "valence_stdp", "cortisol",
     "interpreter", "closed_loop", "make_sensor_dataset", "sensor_demo",
-    "srm_neuron", "stats_bounds", "arm_sim", "arm_config", "population_encoding",
-    "sensor_csv_ingest", "gesture_recognition", "live_arm", "serial_arm", "arm_bridge", "spiking_pid",
-    "demo", "make_results_plot",
+    "arm_sim", "arm_config", "population_encoding", "sensor_csv_ingest",
+    "gesture_recognition", "live_arm", "serial_arm", "arm_bridge", "spiking_pid", "demo",
 ]
+# RESEARCH — benchmarks / storage / KG demos (research/), run with root on PYTHONPATH.
+RESEARCH = [
+    "research/spiking_storage_prototype", "research/test_prototype", "research/snn_moe_classifier",
+    "research/temporal_coding_storage", "research/spike_knowledge_graph",
+    "research/spike_knowledge_graph_rotate", "research/spike_kg_relations", "research/nmnist_ingest",
+    "research/srm_neuron", "research/stats_bounds", "research/make_results_plot",
+]
+MODULES = CORE + RESEARCH
 
 
 def run_all():

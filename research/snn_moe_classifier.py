@@ -25,6 +25,9 @@ Run:  python snn_moe_classifier.py
 """
 import random
 import math
+import os
+import sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # repo root -> product modules
 from snn_classifier import templates, noisy, dataset, N, STEPS, ON_RATE, OFF_RATE
 
 random.seed(0)  # deterministic run + self-check

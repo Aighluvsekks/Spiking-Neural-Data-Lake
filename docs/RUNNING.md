@@ -22,19 +22,14 @@ python --version          # need 3.11+
 Every stdlib module runs standalone with an assert-based self-check — the fastest way to see
 each piece work:
 ```bash
-python spiking_storage_prototype.py   # factored associative-memory storage
+python research/spiking_storage_prototype.py   # factored associative-memory storage
 python spike_telemetry_hub.py         # Paradigm A: sparse .spk store + windowed queries
 python paradigm_b_engine.py           # Paradigm B: in-storage spike-query engine
-python spike_knowledge_graph.py       # Paradigm C: relational spike embeddings
+python research/spike_knowledge_graph.py       # Paradigm C: relational spike embeddings
 ```
-Run the whole suite (what CI runs):
+Run the whole suite (what CI runs) — CORE product + `research/` self-checks:
 ```bash
-for f in spiking_storage_prototype test_prototype snn_classifier snn_moe_classifier \
-         temporal_coding_storage spike_telemetry_hub streaming_hub paradigm_b_matcher \
-         paradigm_b_engine spike_preprocessing spike_knowledge_graph \
-         spike_knowledge_graph_rotate spike_kg_relations nmnist_ingest signal_loop \
-         learned_matcher reflex valence_stdp cortisol interpreter closed_loop \
-         make_sensor_dataset sensor_demo; do python "$f.py" || break; done
+python run_selfchecks.py       # 37/37, one source of truth for the module list
 ```
 
 ### 2. The robot-arm closed loop (the application)
@@ -63,8 +58,8 @@ PYTHONPATH=. .venv-lake/bin/python lakehouse/medallion.py    # Windows: $env:PYT
 ```bash
 python -m venv .venv-nmnist
 .venv-nmnist/bin/pip install tonic                 # pulls ~1 GB N-MNIST on first run
-.venv-nmnist/bin/python nmnist_ingest.py
-# no tonic? `python nmnist_ingest.py` runs on synthetic events (zero-dep)
+.venv-nmnist/bin/python research/nmnist_ingest.py
+# no tonic? `python research/nmnist_ingest.py` runs on synthetic events (zero-dep)
 ```
 
 ### 5. GPU training (optional, needs CUDA + torch)
@@ -73,7 +68,7 @@ For the literature ~95% run (6400 neurons). RTX 50-series (Blackwell) needs CUDA
 python -m venv .venv
 .venv/bin/pip install --index-url https://download.pytorch.org/whl/cu128 torch torchvision
 .venv/bin/pip install snntorch==1.0.0 bindsnet numpy
-NORD_M=1600 NORD_INH=60 NORD_THETA_PLUS=0.20 .venv/bin/python eth_mnist_bindsnet.py --gpu
+NORD_M=1600 NORD_INH=60 NORD_THETA_PLUS=0.20 .venv/bin/python research/eth_mnist_bindsnet.py --gpu
 # CPU fallback works automatically (slower); 400/20k ~ 86% in minutes
 ```
 
@@ -130,7 +125,7 @@ gcloud storage cp gcp/dataproc_medallion.py gs://$BUCKET/code/
 | `lakehouse/medallion.py` (polars) | `gcp/dataproc_medallion.py` (PySpark on Dataproc Serverless) |
 | `lakehouse/data/*.parquet` | `gs://$BUCKET/{bronze,silver,gold}/` |
 | polars SQL over Parquet | BigQuery over BigLake/Iceberg |
-| `eth_mnist_bindsnet.py --gpu` | Vertex AI custom job (`submit_vertex.sh`) |
+| `research/eth_mnist_bindsnet.py --gpu` | Vertex AI custom job (`submit_vertex.sh`) |
 | `signal_loop` stdin/serial ingest | Pub/Sub + Dataflow (`dataflow_ingest.py`) |
 | run scripts by hand | Cloud Composer DAG `snn_medallion` |
 

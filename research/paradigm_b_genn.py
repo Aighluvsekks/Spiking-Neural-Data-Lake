@@ -42,6 +42,8 @@ except Exception as _e:                      # noqa: BLE001 — any import failu
     _HAVE_GENN = False
     _IMPORT_ERR = _e
 
+import sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # repo root -> product modules
 from spike_telemetry_hub import disk_query, synth, SpikeTelemetryHub
 
 
